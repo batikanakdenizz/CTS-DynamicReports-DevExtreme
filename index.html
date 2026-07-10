@@ -12,11 +12,12 @@
     <!-- DevExtreme temaları: rel="dx-theme" linklerini themes modülü yönetir;
          themes.current('fluent.blue.dark') ile çalışma anında geçiş yapılır.
          Dosyalar public/dx/ altında (node_modules/devextreme/dist/css kopyası). -->
-    <!-- %BASE_URL% şart: site GitHub Pages'te alt yolda (/CustomReport-DevExtreme/)
-         yayınlanıyor; '/dx/...' mutlak yolu orada 404 olurdu. Vite dev'de '/',
-         build'de vite.config.js'teki base ile değiştirir. -->
-    <link rel="dx-theme" data-theme="fluent.blue.light" href="%BASE_URL%dx/dx.fluent.blue.light.css" data-active="true" />
-    <link rel="dx-theme" data-theme="fluent.blue.dark" href="%BASE_URL%dx/dx.fluent.blue.dark.css" data-active="false" />
+    <!-- GÖRELİ yol bilinçli: site GitHub Pages'te alt yolda yayınlanıyor.
+         Mutlak '/dx/...' orada 404 olur; %BASE_URL% ise Vite dev'in kendi base
+         eklemesiyle çakışıp yolu İKİ KEZ önekliyordu (yine 404 → beyaz ekran).
+         Göreli 'dx/...' her iki ortamda da sayfa adresine göre doğru çözümlenir. -->
+    <link rel="dx-theme" data-theme="fluent.blue.light" href="dx/dx.fluent.blue.light.css" data-active="true" />
+    <link rel="dx-theme" data-theme="fluent.blue.dark" href="dx/dx.fluent.blue.dark.css" data-active="false" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
