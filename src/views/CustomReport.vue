@@ -165,9 +165,12 @@ const lineSingleNote = computed(
   () => chartType.value === 'line' && report.value.rows.length < 2
 )
 
-// Tooltip: motorun formatValue'su ile biçimli değer (seri adından measure bul)
+// Tooltip: motorun formatValue'su ile biçimli değer. Measure, serinin
+// valueField'ından bulunur (etiket eşleşmesi değil — etiketler ileride
+// i18n'e bağlanırsa kırılmasın); ada dayalı arama yalnızca yedek.
 function chartTooltip(info) {
-  const m = MEASURES.find((x) => x.label === info.seriesName)
+  const vf = info.point?.series?.getValueFields?.()[0]
+  const m = MEASURE_MAP[vf] ?? MEASURES.find((x) => x.label === info.seriesName)
   return { text: `${info.argumentText}\n${info.seriesName}: ${formatValue(info.value, m?.format)}` }
 }
 function pieTooltip(info) {
