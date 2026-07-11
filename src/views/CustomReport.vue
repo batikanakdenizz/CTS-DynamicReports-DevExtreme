@@ -800,12 +800,13 @@ function resetAll() {
    içeriğini sabitliyoruz. */
 :deep(.dx-drawer-panel-content),
 :deep(.dx-drawer-panel-content .dx-overlay-content) {
-  width: 340px !important;
+  width: min(340px, 90vw) !important; /* dar ekranda viewport'u taşmasın */
 }
 
-/* Drawer paneli — PrimeVue Drawer'ın gövdesinin karşılığı */
+/* Drawer paneli — PrimeVue Drawer'ın gövdesinin karşılığı.
+   Genişlik yukarıdaki sarmalayıcıdan gelir; panel onu doldurur. */
 .cr-panel {
-  width: 340px;
+  width: 100%;
   height: 100%;
   background: var(--lp-surface);
   border-left: 1px solid var(--lp-border);
