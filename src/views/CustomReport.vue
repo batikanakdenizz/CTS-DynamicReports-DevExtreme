@@ -11,6 +11,7 @@ import { DxButton } from 'devextreme-vue/button'
 import { DxDataGrid, DxColumn, DxPaging, DxPager } from 'devextreme-vue/data-grid'
 import { DxSelectBox } from 'devextreme-vue/select-box'
 import { DxTextBox } from 'devextreme-vue/text-box'
+import notify from 'devextreme/ui/notify'
 // Grafikler: Chart.js yerine DevExtreme'in SVG tabanlı viz bileşenleri.
 // Chart ve PieChart AYRI bileşenler (Chart.js'te tek Chart + type prop'uydu).
 // Alt-konfigürasyon bileşenlerinin adları çakıştığı için pie olanları alias'lıyoruz.
@@ -268,27 +269,43 @@ async function chartCanvas() {
   }
 }
 
+// Export akışları lazy import + canvas/dosya işlemleri içerir; herhangi biri
+// patlarsa (offline, izin, API uyumsuzluğu) kullanıcı sessiz kalmasın diye
+// hepsi aynı kalıpla sarılır: console'a ayrıntı, ekrana notify.
+function reportExportError(err) {
+  console.error('[export]', err)
+  notify(t('export.failed'), 'error', 3000)
+}
+
 async function downloadPng() {
-  const c = await chartCanvas()
-  if (!c) return
-  const a = document.createElement('a')
-  a.href = c.toDataURL('image/png')
-  a.download = `${exportFileName()}.png`
-  a.click()
+  try {
+    const c = await chartCanvas()
+    if (!c) return
+    const a = document.createElement('a')
+    a.href = c.toDataURL('image/png')
+    a.download = `${exportFileName()}.png`
+    a.click()
+  } catch (err) {
+    reportExportError(err)
+  }
 }
 
 const copied = ref(false)
 async function copyPng() {
-  const c = await chartCanvas()
-  if (!c || !navigator.clipboard || !window.ClipboardItem) return
-  c.toBlob(async (blob) => {
-    if (!blob) return
-    try {
-      await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })])
-      copied.value = true
-      setTimeout(() => { copied.value = false }, 1500)
-    } catch { /* pano izni yok — sessiz geç */ }
-  })
+  try {
+    const c = await chartCanvas()
+    if (!c || !navigator.clipboard || !window.ClipboardItem) return
+    c.toBlob(async (blob) => {
+      if (!blob) return
+      try {
+        await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })])
+        copied.value = true
+        setTimeout(() => { copied.value = false }, 1500)
+      } catch { /* pano izni yok — sessiz geç */ }
+    })
+  } catch (err) {
+    reportExportError(err)
+  }
 }
 
 // Excel: DevExtreme'in excel_exporter'ı grid'i olduğu gibi (HAM sayısal
@@ -296,60 +313,68 @@ async function copyPng() {
 // Ağır kütüphaneler tıklanınca lazy-load edilir (ilk sayfa yükü şişmesin).
 const dsGridRef = ref(null)
 async function exportExcel() {
-  const grid = dsGridRef.value?.instance
-  if (!grid) return
-  const [{ exportDataGrid }, ExcelJSmod, fsMod] = await Promise.all([
-    import('devextreme/excel_exporter'),
-    import('exceljs'),
-    import('file-saver'),
-  ])
-  const Workbook = ExcelJSmod.Workbook ?? ExcelJSmod.default.Workbook
-  const saveAs = fsMod.saveAs ?? fsMod.default
-  const workbook = new Workbook()
-  const worksheet = workbook.addWorksheet('Report')
-  await exportDataGrid({ component: grid, worksheet })
-  const buffer = await workbook.xlsx.writeBuffer()
-  saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${exportFileName()}.xlsx`)
+  try {
+    const grid = dsGridRef.value?.instance
+    if (!grid) return
+    const [{ exportDataGrid }, ExcelJSmod, fsMod] = await Promise.all([
+      import('devextreme/excel_exporter'),
+      import('exceljs'),
+      import('file-saver'),
+    ])
+    const Workbook = ExcelJSmod.Workbook ?? ExcelJSmod.default.Workbook
+    const saveAs = fsMod.saveAs ?? fsMod.default
+    const workbook = new Workbook()
+    const worksheet = workbook.addWorksheet('Report')
+    await exportDataGrid({ component: grid, worksheet })
+    const buffer = await workbook.xlsx.writeBuffer()
+    saveAs(new Blob([buffer], { type: 'application/octet-stream' }), `${exportFileName()}.xlsx`)
+  } catch (err) {
+    reportExportError(err)
+  }
 }
 
 // PDF: önce grafik görseli (rasterize edilmiş SVG), altına biçimli veri tablosu.
 // Motorun columns/rows'u framework'süz olduğu için eski jspdf kodu birebir taşındı.
 async function exportPdf() {
-  const { jsPDF } = await import('jspdf')
-  const { default: autoTable } = await import('jspdf-autotable')
-  const { columns, rows } = report.value
-  const doc = new jsPDF({ orientation: 'landscape' })
-  const pageW = doc.internal.pageSize.getWidth()
-  const margin = 14
+  try {
+    const { jsPDF } = await import('jspdf')
+    const { default: autoTable } = await import('jspdf-autotable')
+    const { columns, rows } = report.value
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const pageW = doc.internal.pageSize.getWidth()
+    const margin = 14
 
-  doc.setFontSize(14)
-  doc.text('Custom Report', margin, 14)
-  doc.setFontSize(9)
-  doc.setTextColor(120)
-  doc.text(new Date().toLocaleString(), margin, 20)
-  doc.setTextColor(0)
+    doc.setFontSize(14)
+    doc.text('Custom Report', margin, 14)
+    doc.setFontSize(9)
+    doc.setTextColor(120)
+    doc.text(new Date().toLocaleString(), margin, 20)
+    doc.setTextColor(0)
 
-  let tableY = 26
+    let tableY = 26
 
-  const c = await chartCanvas()
-  if (c) {
-    const availW = pageW - margin * 2
-    const ratio = c.height / c.width || 0.4
-    const imgH = Math.min(availW * ratio, 95) // sayfada tabloya da yer kalsın
-    doc.addImage(c.toDataURL('image/png'), 'PNG', margin, tableY, availW, imgH)
-    tableY += imgH + 6
+    const c = await chartCanvas()
+    if (c) {
+      const availW = pageW - margin * 2
+      const ratio = c.height / c.width || 0.4
+      const imgH = Math.min(availW * ratio, 95) // sayfada tabloya da yer kalsın
+      doc.addImage(c.toDataURL('image/png'), 'PNG', margin, tableY, availW, imgH)
+      tableY += imgH + 6
+    }
+
+    autoTable(doc, {
+      startY: tableY,
+      head: [columns.map((col) => col.label)],
+      body: rows.map((r) =>
+        columns.map((col) => (col.isDimension ? r[col.key] : formatValue(r[col.key], col.format)))
+      ),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246] },
+    })
+    doc.save(`${exportFileName()}.pdf`)
+  } catch (err) {
+    reportExportError(err)
   }
-
-  autoTable(doc, {
-    startY: tableY,
-    head: [columns.map((col) => col.label)],
-    body: rows.map((r) =>
-      columns.map((col) => (col.isDimension ? r[col.key] : formatValue(r[col.key], col.format)))
-    ),
-    styles: { fontSize: 7, cellPadding: 2 },
-    headStyles: { fillColor: [59, 130, 246] },
-  })
-  doc.save(`${exportFileName()}.pdf`)
 }
 
 // ==================== KAYDEDİLMİŞ RAPORLAR (localStorage) ====================

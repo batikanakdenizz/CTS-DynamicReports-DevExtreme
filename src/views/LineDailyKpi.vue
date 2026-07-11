@@ -17,6 +17,7 @@ import {
 import { DxDateBox } from 'devextreme-vue/date-box'
 import { DxTagBox } from 'devextreme-vue/tag-box'
 import { DxButton } from 'devextreme-vue/button'
+import notify from 'devextreme/ui/notify'
 import { generateRows, COLUMNS, LINE_OPTIONS } from '../data/dummyData.js'
 import { parseDate } from '../lib/reportEngine.js'
 
@@ -67,25 +68,30 @@ function clearFilters() {
 // Excel: grid'in O ANKİ görünümünü (filtre + sıralama uygulanmış) ExcelJS'e döker.
 // Kütüphaneler tıklanınca lazy-load edilir (CustomReport'takiyle aynı kalıp).
 async function exportExcel() {
-  const grid = gridRef.value?.instance
-  if (!grid) return
-  const [{ exportDataGrid }, ExcelJSmod, fsMod] = await Promise.all([
-    import('devextreme/excel_exporter'),
-    import('exceljs'),
-    import('file-saver'),
-  ])
-  const Workbook = ExcelJSmod.Workbook ?? ExcelJSmod.default.Workbook
-  const saveAs = fsMod.saveAs ?? fsMod.default
-  const workbook = new Workbook()
-  const worksheet = workbook.addWorksheet('Line Daily KPI')
-  await exportDataGrid({ component: grid, worksheet })
-  const buffer = await workbook.xlsx.writeBuffer()
-  const d = new Date()
-  const p = (n) => String(n).padStart(2, '0')
-  saveAs(
-    new Blob([buffer], { type: 'application/octet-stream' }),
-    `line-daily-kpi-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.xlsx`
-  )
+  try {
+    const grid = gridRef.value?.instance
+    if (!grid) return
+    const [{ exportDataGrid }, ExcelJSmod, fsMod] = await Promise.all([
+      import('devextreme/excel_exporter'),
+      import('exceljs'),
+      import('file-saver'),
+    ])
+    const Workbook = ExcelJSmod.Workbook ?? ExcelJSmod.default.Workbook
+    const saveAs = fsMod.saveAs ?? fsMod.default
+    const workbook = new Workbook()
+    const worksheet = workbook.addWorksheet('Line Daily KPI')
+    await exportDataGrid({ component: grid, worksheet })
+    const buffer = await workbook.xlsx.writeBuffer()
+    const d = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    saveAs(
+      new Blob([buffer], { type: 'application/octet-stream' }),
+      `line-daily-kpi-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.xlsx`
+    )
+  } catch (err) {
+    console.error('[export]', err)
+    notify('Export failed — see console for details', 'error', 3000)
+  }
 }
 </script>
 
