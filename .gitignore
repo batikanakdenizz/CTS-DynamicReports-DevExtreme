@@ -15,6 +15,9 @@ dist-ssr
 # DevExtreme tema kopyaları — scripts/copy-dx-themes.mjs üretir (predev/prebuild)
 public/dx
 
+# Yerel notlar (repo'ya girmez)
+devextreme.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
