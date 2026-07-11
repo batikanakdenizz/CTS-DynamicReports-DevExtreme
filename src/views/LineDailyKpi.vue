@@ -18,6 +18,7 @@ import { DxDateBox } from 'devextreme-vue/date-box'
 import { DxTagBox } from 'devextreme-vue/tag-box'
 import { DxButton } from 'devextreme-vue/button'
 import { generateRows, COLUMNS, LINE_OPTIONS } from '../data/dummyData.js'
+import { parseDate } from '../lib/reportEngine.js'
 
 // Tarihler: dummy data bugüne göre üretildiği için son 30 gün preset gelir
 // (eski projede sabit tarihti; veriyi her zaman kapsasın diye göreli yaptık).
@@ -37,7 +38,16 @@ const rows = ref([])
 
 function generate() {
   const lines = selectedLines.value
-  rows.value = allRows.value.filter((r) => lines.includes(r.line))
+  // Tarih aralığı da uygulanır (gün başı/sonu dahil) — kutular süs değil
+  const fromT = startDate.value ? new Date(startDate.value).setHours(0, 0, 0, 0) : null
+  const toT = endDate.value ? new Date(endDate.value).setHours(23, 59, 59, 999) : null
+  rows.value = allRows.value.filter((r) => {
+    if (!lines.includes(r.line)) return false
+    const t = parseDate(r.date).getTime()
+    if (fromT != null && t < fromT) return false
+    if (toT != null && t > toT) return false
+    return true
+  })
 }
 generate() // ilk yüklemede dolu gelsin
 

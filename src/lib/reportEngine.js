@@ -7,8 +7,8 @@
 
 import { MEASURE_MAP, DIMENSION_MAP } from '../data/reportCatalog.js'
 
-// Shell tarih formatı: 'dd.mm.yyyy'
-function parseDate(str) {
+// Shell tarih formatı: 'dd.mm.yyyy' — view'lerin tarih filtreleri de kullanır
+export function parseDate(str) {
   const [d, m, y] = str.split('.').map(Number)
   return new Date(y, m - 1, d)
 }
