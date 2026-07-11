@@ -23,7 +23,11 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
+      # npm ci DEĞİL — bilinçli: Windows'ta üretilen package-lock, rolldown'ın
+      # Linux/WASM opsiyonel bağımlılık ağacını (@emnapi/*, tam sürüm pinli)
+      # kaydedemiyor (npm'in cross-platform optional-deps kısıtı); npm ci
+      # Ubuntu'da EUSAGE ile düşüyor. npm install lockfile aralıklarına uyar.
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
