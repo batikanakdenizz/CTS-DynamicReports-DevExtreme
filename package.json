@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-dx-themes.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/copy-dx-themes.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
