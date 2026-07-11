@@ -6,7 +6,7 @@
 const LINES = ['Link-up 38', 'Link-Up-37']
 const DESIGN_SPEED = 8400 // adet/dk
 
-// Seed'li PRNG — deterministik dummy data (her yüklemede/HMR'de aynı sonuç üretir).
+// Seed'li PRNG — deterministik dummy data.
 function mulberry32(seed) {
   return function () {
     seed |= 0
@@ -16,7 +16,10 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
-const rng = mulberry32(20260706)
+// rng her generateRows çağrısında seed'den YENİDEN kurulur (aşağıda). Modül
+// seviyesinde tek instance olsaydı ikinci çağrı diziyi kaldığı yerden üretir,
+// ekranlar (KPI vs Custom Report) aynı hat+gün için farklı sayılar gösterirdi.
+let rng = mulberry32(20260706)
 
 function rand(min, max) {
   return rng() * (max - min) + min
@@ -108,6 +111,7 @@ function makeRow(line, date) {
 }
 
 export function generateRows(days = 30) {
+  rng = mulberry32(20260706) // her çağrı aynı diziyi üretsin (bkz. yukarıdaki not)
   const dates = buildDates(days)
   const rows = []
   for (const date of dates) {
