@@ -318,6 +318,121 @@ async function exportExcel() {
   }
 }
 
+// --- PDF export (özel) --------------------------------------------------------
+// Resmî pdf_exporter yalnız DataGrid+Gantt destekler; PivotGrid'in resmî PDF
+// yolu YOK. Bu yüzden: (1) pivota bağlı grafiğin SVG'si canvas'a rasterize
+// edilip görsel olarak, (2) pivotun O ANKİ görünümü (aç/kapa durumu neyse o)
+// getData() ağaçlarından düzleştirilip autotable ile tablo olarak basılır.
+function svgToCanvas(svgText, fallbackW = 800, fallbackH = 320) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }))
+    const img = new Image()
+    img.onload = () => {
+      const scale = 2
+      const c = document.createElement('canvas')
+      c.width = (img.naturalWidth || fallbackW) * scale
+      c.height = (img.naturalHeight || fallbackH) * scale
+      const ctx = c.getContext('2d')
+      ctx.fillStyle = '#ffffff' // PDF zemini hep beyaz — koyu temada da okunur
+      ctx.fillRect(0, 0, c.width, c.height)
+      ctx.scale(scale, scale)
+      ctx.drawImage(img, 0, 0)
+      URL.revokeObjectURL(url)
+      resolve(c)
+    }
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e) }
+    img.src = url
+  })
+}
+
+// Ağaçtan görünür yaprak yolları: kapalı düğümün children'ı gelmez, yani
+// kullanıcının ekranda gördüğü seviye neyse PDF'e o iner.
+function leafPaths(nodes, prefix = []) {
+  const out = []
+  for (const n of nodes ?? []) {
+    const path = [...prefix, n.text ?? String(n.value)]
+    if (n.children?.length) out.push(...leafPaths(n.children, path))
+    else out.push({ path, index: n.index })
+  }
+  return out
+}
+
+async function exportPdf() {
+  try {
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
+    const pivot = pivotRef.value.instance
+    const ds = pivot.getDataSource()
+    const data = ds.getData()
+
+    // Görünür ölçüler + values dizisindeki gerçek indeksleri (gizli sum'lar
+    // values'ta yer kaplar — sıra getAreaFields('data') sırasıdır)
+    const dataFields = ds.getAreaFields('data', false)
+    const measures = dataFields
+      .map((f, i) => ({ caption: f.caption, unit: f.unit, valueIndex: i, visible: f.visible !== false }))
+      .filter((m) => m.visible)
+
+    const rowLeaves = leafPaths(data.rows)
+    const colLeaves = leafPaths(data.columns)
+    if (data.grandTotalColumnIndex != null) {
+      colLeaves.push({ path: ['Genel Toplam'], index: data.grandTotalColumnIndex })
+    }
+    if (data.grandTotalRowIndex != null) {
+      rowLeaves.push({ path: ['Genel Toplam'], index: data.grandTotalRowIndex })
+    }
+
+    const fmt = (v, unit) =>
+      v == null ? '' : unit === 'pct' ? Number(v).toFixed(2) : Number(v).toLocaleString('tr-TR', { maximumFractionDigits: 1 })
+
+    const head = [[
+      'Satır',
+      ...colLeaves.flatMap((c) => measures.map((m) => `${c.path.join(' / ')}\n${m.caption}`)),
+    ]]
+    const body = rowLeaves.map((r) => [
+      r.path.join(' / '),
+      ...colLeaves.flatMap((c) =>
+        measures.map((m) => fmt(data.values?.[r.index]?.[c.index]?.[m.valueIndex], m.unit))
+      ),
+    ])
+
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const pageW = doc.internal.pageSize.getWidth()
+    const margin = 10
+    doc.setFontSize(13)
+    doc.text('Pivot Analysis', margin, 12)
+    doc.setFontSize(8)
+    doc.setTextColor(120)
+    doc.text(new Date().toLocaleString('tr-TR'), margin, 17)
+    doc.setTextColor(0)
+
+    let y = 22
+    const chartInst = chartRef.value?.instance
+    if (chartInst?.svg) {
+      const c = await svgToCanvas(chartInst.svg())
+      const availW = pageW - margin * 2
+      const h = Math.min(availW * (c.height / c.width), 80)
+      doc.addImage(c.toDataURL('image/png'), 'PNG', margin, y, availW, h)
+      y += h + 5
+    }
+
+    autoTable(doc, {
+      startY: y,
+      head,
+      body,
+      styles: { fontSize: 6, cellPadding: 1.2 },
+      headStyles: { fillColor: [59, 130, 246], fontSize: 5.5 },
+    })
+    const d = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    doc.save(`pivot-analysis-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.pdf`)
+  } catch (err) {
+    console.error('[export]', err)
+    notify('Export failed — see console for details', 'error', 3000)
+  }
+}
+
 // --- Pivot düzenini kaydet/yükle (PivotGridDataSource.state) -----------------
 // Widget'ın hazır stateStoring'i tek storageKey ile çalışır; bizde İKİ kaynak
 // (demo/real, farklı alan setleri) arasında geçiş var — yanlış kaynağın state'i
@@ -447,6 +562,7 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
           <DxButton icon="save" styling-mode="outlined" hint="Pivot düzenini kaydet" @click="saveLayout" />
           <DxButton icon="folder" styling-mode="outlined" hint="Kayıtlı düzeni yükle" @click="loadLayout" />
           <DxButton icon="exportxlsx" type="success" styling-mode="outlined" hint="Excel'e aktar" @click="exportExcel" />
+          <DxButton icon="exportpdf" type="danger" styling-mode="outlined" hint="PDF'e aktar (grafik + görünür tablo)" @click="exportPdf" />
         </div>
       </div>
       <DxChart ref="chartRef">
