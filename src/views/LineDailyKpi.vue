@@ -161,6 +161,8 @@ async function exportExcel() {
         :column-min-width="110"
         :allow-column-resizing="true"
         :column-fixing="{ enabled: true }"
+        :column-chooser="{ enabled: true, mode: 'select' }"
+        :state-storing="{ enabled: true, type: 'localStorage', storageKey: 'kpi-grid-state' }"
         width="100%"
       >
         <!-- Kolon başına arama kutusu (gerçek LinePulse davranışı) -->
