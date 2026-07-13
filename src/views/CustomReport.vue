@@ -26,6 +26,8 @@ import {
   DxTooltip,
   DxZoomAndPan,
   DxPoint,
+  DxConstantLine,
+  DxLabel,
 } from 'devextreme-vue/chart'
 import {
   DxPieChart,
@@ -151,6 +153,16 @@ const isMixedAxis = computed(() => {
 })
 const axisFor = (mkey) =>
   isMixedAxis.value ? (measureFmt(mkey) === 'pct' ? 'pct' : 'num') : undefined
+
+// Hedef çizgileri: katalogda target'ı olan SEÇİLİ pct ölçüleri — yüzde
+// ekseninde kesikli constantLine olarak çizilir (fabrika raporunun
+// "hedefin neresindeyiz" sorusu grafikten okunur).
+const targetLines = computed(() =>
+  selectedMeasures.value
+    .map((k) => MEASURE_MAP[k])
+    .filter((m) => m?.target != null && m.format === 'pct')
+    .map((m) => ({ key: m.key, value: m.target, color: m.color ?? '#64748b', text: `${m.label} hedef: ${m.target}` }))
+)
 
 // Donut tek ölçüm gösterir (eski davranışla aynı)
 const donutMeasure = computed(() => selectedMeasures.value[0])
@@ -713,15 +725,38 @@ function resetAll() {
                 </DxSeries>
 
                 <DxArgumentAxis :discrete-axis-division-mode="'crossLabels'" />
-                <!-- Çift eksen yalnızca % + sayı karışıksa -->
+                <!-- Çift eksen yalnızca % + sayı karışıksa; hedef çizgileri
+                     her iki düzende de YÜZDE ekseninde durur -->
                 <template v-if="isMixedAxis">
                   <DxValueAxis name="pct" position="left">
                     <DxTitle text="%" />
+                    <DxConstantLine
+                      v-for="cl in targetLines"
+                      :key="cl.key"
+                      :value="cl.value"
+                      :color="cl.color"
+                      dash-style="dash"
+                      :width="2"
+                    >
+                      <DxLabel :text="cl.text" />
+                    </DxConstantLine>
                   </DxValueAxis>
                   <DxValueAxis name="num" position="right">
                     <DxTitle text="#" />
                   </DxValueAxis>
                 </template>
+                <DxValueAxis v-else>
+                  <DxConstantLine
+                    v-for="cl in targetLines"
+                    :key="cl.key"
+                    :value="cl.value"
+                    :color="cl.color"
+                    dash-style="dash"
+                    :width="2"
+                  >
+                    <DxLabel :text="cl.text" />
+                  </DxConstantLine>
+                </DxValueAxis>
 
                 <DxLegend
                   vertical-alignment="top"

@@ -39,6 +39,10 @@ const DERIVED = [
   {
     key: 'upTime', label: 'Up Time %', format: 'pct', group: 'KPI', color: '#2aa46a',
     num: (r) => r.volume, den: (r) => r.theoVolume, scale: 100,
+    // Grafikte hedef çizgisi (constantLine). Demo değeri — gerçekte hat/dönem
+    // bazlı hedefler API'den/tanımlardan gelir; target'ı olan her pct ölçüsü
+    // otomatik çizgi alır (CustomReport.targetLines).
+    target: 55,
   },
   {
     key: 'rejectLoss', label: 'Reject Loss %', format: 'pct', group: 'KPI', color: '#e8683d',
