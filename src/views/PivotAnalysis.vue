@@ -52,9 +52,12 @@ const ratioKpi = (caption, num) => ({
 // bindChart notu: her görünür satır yaprağı × KPI bir SERİ olur; hiyerarşi
 // açık başlarsa legend patlar → boyutlar kapalı (expanded yok) başlar.
 const DEMO_DIMENSIONS = [
-  // SATIR: Line > Machine hiyerarşisi (dizideki sıra = iç içe seviye)
-  { caption: 'Line', dataField: 'line', area: 'row' },
-  { caption: 'Machine', dataField: 'machine', area: 'row' },
+  // SATIR: Line > Machine hiyerarşisi (dizideki sıra = iç içe seviye).
+  // width şart: pivot tam genişliğe yayılır, veri sütunu azken artan boşluk
+  // satır kolonlarına dağılıp onları devasa yapıyor — sabit genişlikle artık
+  // veri sütunlarına gider.
+  { caption: 'Line', dataField: 'line', area: 'row', width: 180 },
+  { caption: 'Machine', dataField: 'machine', area: 'row', width: 150 },
   // SÜTUN: tarih hiyerarşisi — aynı dataField, farklı groupInterval.
   // (Not: ISO hafta yok; istenirse selector ile custom alan yazılır.)
   { caption: 'Year', dataField: 'date', dataType: 'date', groupInterval: 'year', area: 'column' },
@@ -69,7 +72,7 @@ const DEMO_DIMENSIONS = [
 // sistemden vardiya/duruş granüllü export gerekir (şirkete iletilecek not).
 // Gün seviyesi eklendi: tek yıl/ay olsa da satır sayısı gün bazında.
 const REAL_DIMENSIONS = [
-  { caption: 'Line', dataField: 'line', area: 'row' },
+  { caption: 'Line', dataField: 'line', area: 'row', width: 180 },
   { caption: 'Year', dataField: 'date', dataType: 'date', groupInterval: 'year', area: 'column' },
   { caption: 'Month', dataField: 'date', dataType: 'date', groupInterval: 'month', area: 'column' },
   { caption: 'Day', dataField: 'date', dataType: 'date', groupInterval: 'day', area: 'column' },
