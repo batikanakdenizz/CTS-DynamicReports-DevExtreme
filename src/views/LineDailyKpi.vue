@@ -160,6 +160,7 @@ async function exportExcel() {
         :column-auto-width="true"
         :column-min-width="110"
         :allow-column-resizing="true"
+        :column-fixing="{ enabled: true }"
         width="100%"
       >
         <!-- Kolon başına arama kutusu (gerçek LinePulse davranışı) -->
@@ -175,6 +176,8 @@ async function exportExcel() {
           :show-info="true"
         />
 
+        <!-- Line + Date sola sabit: 28 kolonda yatay kaydırırken satırın
+             KİMLİĞİ görünür kalsın (columnFixing) -->
         <DxColumn
           v-for="col in COLUMNS"
           :key="col.field"
@@ -182,6 +185,7 @@ async function exportExcel() {
           :caption="col.header"
           :data-type="colDataType(col)"
           :format="colFormat(col)"
+          :fixed="col.field === 'line' || col.field === 'date'"
         />
       </DxDataGrid>
     </div>
