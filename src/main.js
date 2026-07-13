@@ -7,10 +7,12 @@ import './style.css'
 import App from './App.vue'
 import { initTheme } from './lib/theme.js'
 import { initI18n } from './lib/i18n.js'
+import { initDxLocale } from './lib/dxLocale.js'
 
 // Kayıtlı tema / dil tercihini mount'tan önce uygula (flash olmasın)
 initTheme()
 initI18n()
+initDxLocale() // initI18n'den SONRA: kayıtlı dili DevExtreme'e de uygular
 
 // Tema stylesheet'i hazır olmadan mount etme (stilsiz içerik parlaması olmasın).
 // EMNİYET: tema CSS'i yüklenemezse themes.initialized HİÇ ateşlenmez ve sayfa

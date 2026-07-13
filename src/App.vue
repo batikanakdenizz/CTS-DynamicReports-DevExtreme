@@ -5,6 +5,7 @@ import AppTopbar from './layout/AppTopbar.vue'
 import LineDailyKpi from './views/LineDailyKpi.vue'
 import CustomReport from './views/CustomReport.vue'
 import PivotAnalysis from './views/PivotAnalysis.vue'
+import { locale } from './lib/i18n.js'
 
 // Basit view yönlendirme (router yerine): sidebar 'active' anahtarını view'e eşler.
 const active = ref('line-daily-kpi')
@@ -20,7 +21,9 @@ const title = computed(() => current.value?.title || 'LinePulse')
 </script>
 
 <template>
-  <div class="lp-layout">
+  <!-- :key="locale" — dil değişince ağaç yeniden kurulur; DevExtreme widget'ları
+       İÇ metinlerini (pager, field chooser...) ancak kurulurken okur (dxLocale.js) -->
+  <div class="lp-layout" :key="locale">
     <AppSidebar v-model:active="active" />
     <div class="lp-main">
       <AppTopbar :title="title" />
