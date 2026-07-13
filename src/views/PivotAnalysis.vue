@@ -45,11 +45,14 @@ const hiddenSum = (name) => ({
 })
 
 const pct = { type: 'fixedPoint', precision: 2 }
+// unit: bizim custom alanımız (DevExtreme field'da yabancı prop taşır) —
+// grafiğe bağlanınca yüzde/adet ölçek karışımını tespit için kullanılır.
 const ratioKpi = (caption, num) => ({
   caption,
   area: 'data',
   format: pct,
   isMeasure: true,
+  unit: 'pct',
   calculateSummaryValue: (cell) => {
     const den = cell.value('theoVolume')
     return den ? (cell.value(num) / den) * 100 : null
@@ -114,6 +117,7 @@ function measureFields() {
       area: 'data',
       format: pct,
       isMeasure: true,
+      unit: 'pct',
       calculateSummaryValue: (cell) => {
         const t = cell.value('theoVolume')
         if (!t) return null
@@ -126,8 +130,8 @@ function measureFields() {
 
     // Chooser'da bekleyen ek ölçüler (varsayılan görünmez; kullanıcı data
     // bölgesine sürükler)
-    { caption: 'Volume (sum)', dataField: 'volume', summaryType: 'sum', isMeasure: true, format: { type: 'fixedPoint', precision: 0 } },
-    { caption: 'Stops (sum)', dataField: 'numberOfStops', summaryType: 'sum', isMeasure: true, format: { type: 'fixedPoint', precision: 0 } },
+    { caption: 'Volume (sum)', dataField: 'volume', summaryType: 'sum', isMeasure: true, unit: 'count', format: { type: 'fixedPoint', precision: 0 } },
+    { caption: 'Stops (sum)', dataField: 'numberOfStops', summaryType: 'sum', isMeasure: true, unit: 'count', format: { type: 'fixedPoint', precision: 0 } },
     {
       // MTBF de pay/payda kuralına örnek: ORTALANMAZ, toplamlardan kurulur —
       // sum(çalışma süresi) / sum(duruş sayısı). Raporun satır MTBF'iyle satır
@@ -135,6 +139,7 @@ function measureFields() {
       caption: 'MTBF (dk)',
       format: { type: 'fixedPoint', precision: 1 },
       isMeasure: true,
+      unit: 'count',
       calculateSummaryValue: (cell) => {
         const stops = cell.value('numberOfStops')
         return stops ? cell.value('totalRuntime') / stops : null
@@ -149,6 +154,7 @@ function measureFields() {
       summaryType: 'sum',
       summaryDisplayMode: 'percentOfGrandTotal',
       isMeasure: true,
+      unit: 'pct',
     },
   ]
 }
@@ -176,9 +182,10 @@ const chartRef = ref(null)
 let unbindChart = null
 
 const BIND_OPTIONS = {
-  // 5 görünür KPI da yüzde → tek eksen yeter. Kullanıcı chooser'dan
-  // Volume (adet) eklerse ölçekler çakışır; o senaryoda 'splitPanes'
-  // (ölçü başına ayrı pane — demodaki Total/Count görünümü) tercih edilir.
+  // dataFieldsDisplayMode dinamik: tüm görünür ölçüler aynı birimse (hep %)
+  // tek eksen; kullanıcı chooser'dan farklı birim eklerse (Volume, MTBF...)
+  // ölçekler çakışmasın diye ölçü başına ayrı pane (splitPanes). Karar
+  // computeBindOptions'ta, alan setine göre her yapı değişiminde verilir.
   dataFieldsDisplayMode: 'singleAxis',
   // Ölçüler seri olarak kalsın (argüman eksenine taşınmasın)
   putDataFieldsInto: 'series',
@@ -212,9 +219,33 @@ const BIND_OPTIONS = {
   },
 }
 
-onMounted(() => {
-  unbindChart = pivotRef.value.instance.bindChart(chartRef.value.instance, BIND_OPTIONS)
-})
+// Görünür data ölçülerinin birim kümesine bak: karışıksa splitPanes.
+// (CustomReport'taki isMixedAxis/çift eksen kararının pivot karşılığı.)
+function computeBindOptions() {
+  const ds = pivotRef.value.instance.getDataSource()
+  const units = new Set(
+    ds.fields()
+      .filter((f) => f.area === 'data' && f.visible !== false)
+      .map((f) => f.unit ?? 'count')
+  )
+  return {
+    ...BIND_OPTIONS,
+    dataFieldsDisplayMode: units.size > 1 ? 'splitPanes' : 'singleAxis',
+  }
+}
+
+// bindChart seçenekleri bağlanma ANINDA okunur — mod değişince yeniden bağla.
+// contentReady her yapı değişiminde gelir; mod aynıysa dokunma (loop yok).
+let boundMode = null
+function rebindChart() {
+  const opts = computeBindOptions()
+  if (opts.dataFieldsDisplayMode === boundMode) return
+  boundMode = opts.dataFieldsDisplayMode
+  if (unbindChart) unbindChart()
+  unbindChart = pivotRef.value.instance.bindChart(chartRef.value.instance, opts)
+}
+
+onMounted(rebindChart)
 
 // --- Veri kaynağı seçici -----------------------------------------------------
 // bindChart bağı kurulduğu ANDAKİ dataSource'a abone olur; kaynak değişince
@@ -232,8 +263,10 @@ function onSourceChanged(e) {
   activeSource.value = val
   const pivot = pivotRef.value.instance
   if (unbindChart) unbindChart()
+  unbindChart = null
   pivot.option('dataSource', makeDataSource(val))
-  unbindChart = pivot.bindChart(chartRef.value.instance, BIND_OPTIONS)
+  boundMode = null // yeni kaynak → mod yeniden hesaplansın
+  rebindChart()
 }
 
 // --- Excel export (exportPivotGrid) -----------------------------------------
@@ -407,6 +440,7 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
       <DxPivotGrid
         ref="pivotRef"
         :data-source="dataSource"
+        @content-ready="rebindChart"
         @cell-click="onPivotCellClick"
         :scrolling="{ mode: 'virtual' }"
         row-header-layout="tree"
