@@ -743,6 +743,7 @@ function resetAll() {
                       :color="cl.color"
                       dash-style="dash"
                       :width="2"
+                      :extend-axis="true"
                     >
                       <DxLabel :text="cl.text" />
                     </DxConstantLine>
@@ -759,6 +760,7 @@ function resetAll() {
                     :color="cl.color"
                     dash-style="dash"
                     :width="2"
+                    :extend-axis="true"
                   >
                     <DxLabel :text="cl.text" />
                   </DxConstantLine>
