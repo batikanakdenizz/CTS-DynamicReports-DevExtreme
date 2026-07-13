@@ -17,6 +17,11 @@ public/dx
 
 # Yerel notlar (repo'ya girmez)
 devextreme.md
+comparison.md
+
+# Gerçek sistem verisi (repo'ya girmez — loader dosya yoksa boş döner)
+LineDailyKpiReport*.json
+src/data/lineDailyKpiReport.json
 
 # Editor directories and files
 .vscode/*
