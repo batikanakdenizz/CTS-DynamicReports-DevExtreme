@@ -181,6 +181,13 @@ const pivotRef = ref(null)
 const chartRef = ref(null)
 let unbindChart = null
 
+// Grafiğe çıkması istenen ölçüler — hem seri (customizeSeries) hem pane
+// (customizeChart) süzgeci bu listeyi kullanır.
+const CHART_KPIS = [
+  'Up Time %', 'Reject Loss %', 'Planned DT %', 'Unplanned DT %', 'Rate Loss %',
+  'Volume (sum)', 'Stops (sum)', 'MTBF (dk)', 'Volume %GT',
+]
+
 const BIND_OPTIONS = {
   // dataFieldsDisplayMode dinamik: tüm görünür ölçüler aynı birimse (hep %)
   // tek eksen; kullanıcı chooser'dan farklı birim eklerse (Volume, MTBF...)
@@ -205,10 +212,6 @@ const BIND_OPTIONS = {
   customizeSeries: (seriesName, seriesOptions) => {
     const name = String(seriesName)
     const kpi = name.split(' | ').pop()
-    const CHART_KPIS = [
-      'Up Time %', 'Reject Loss %', 'Planned DT %', 'Unplanned DT %', 'Rate Loss %',
-      'Volume (sum)', 'Stops (sum)', 'MTBF (dk)', 'Volume %GT',
-    ]
     if (!CHART_KPIS.includes(kpi)) {
       seriesOptions.visible = false
       seriesOptions.showInLegend = false
@@ -216,6 +219,24 @@ const BIND_OPTIONS = {
     }
     const parts = name.split(' | ')
     seriesOptions.stack = parts.slice(0, -1).join(' | ') || name
+  },
+  // splitPanes gizli sum alanlarına da BOŞ pane/eksen açar (serileri yukarıda
+  // gizlesek bile şeritleri kalır — "üstte boşluk" şikayeti). Son chart
+  // options'ında pane/eksen/serileri KPI beyaz listesine indiriyoruz ve
+  // yüksekliği kalan pane sayısına göre ölçekliyoruz.
+  customizeChart: (options) => {
+    const keep = (n) => CHART_KPIS.includes(String(n))
+    if (Array.isArray(options.panes)) {
+      options.panes = options.panes.filter((p) => keep(p.name))
+      if (Array.isArray(options.valueAxis)) {
+        options.valueAxis = options.valueAxis.filter((a) => keep(a.pane ?? a.name))
+      }
+      if (Array.isArray(options.series)) {
+        options.series = options.series.filter((s) => s.pane == null || keep(s.pane))
+      }
+      options.size = { height: Math.max(320, options.panes.length * 110) }
+    }
+    return options
   },
 }
 
