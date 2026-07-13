@@ -350,55 +350,14 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
   text: `${seriesName}: ${Number.isFinite(value) ? value.toFixed(2) : '—'}`,
 })
 
-// --- Ölçü çiplerini veri sütunlarıyla hizala ----------------------------------
-// İstek: üst şeritteki ÖLÇÜ çipleri (Up Time %, Reject Loss %...) widget'ın
-// sol kenarından değil, veri sütunlarının (2026 başlığının) başladığı hizadan
-// başlasın; sığmazsa sola taşsın. DOM'da ölçü çipleri sol üst köşe hücresinde
-// (.dx-data-header), kolon çipleri (Year/Month/Day) o hizada başlayan
-// .dx-column-header hücresinde.
-// YÖNTEM: CSS transform ile GÖRSEL kaydırma. Çip gruplarını başka hücreye
-// TAŞIMAK yasak — DevExtreme'in sürükleme motoru grup elemanlarının DOM
-// konumuna göre drop hedefi çözüyor, taşınan grup sürükle-bırakı bozuyor
-// (yaşandı: çip kaldırılıp geri eklenemedi). transform DOM'a dokunmaz ama
-// hit-testing'i görüntüyle birlikte taşır — bırakma noktaları tutarlı kalır.
-// Hesap: ölçü grubu hedefte descW'ye (sol kolon genişliği) kayar; kolon grubu
-// onun bittiği yere. Toplam şerit sığmıyorsa kayma kısılır → sola taşma.
-// contentReady her yeniden çizimde tetiklenir — hiza güncel kalır.
-function chipsWidth(area) {
-  // .dx-area-fields tablosu hücreyi doldurabilir; gerçek içerik genişliği =
-  // son çipin sağ kenarı - alanın sol kenarı. Alan BOŞKEN tablo hücrenin
-  // tamamına yayılır — genişliğini olduğu gibi almak "şerit sığmıyor" yanılgısı
-  // yaratıp kaydırmayı sıfırlıyordu; boşta placeholder metni ölçülür.
-  const chips = area.querySelectorAll('.dx-area-field')
-  if (chips.length) {
-    return chips[chips.length - 1].getBoundingClientRect().right - area.getBoundingClientRect().left
-  }
-  const empty = area.querySelector('.dx-empty-area-text')
-  return empty ? empty.getBoundingClientRect().width : 0
-}
-
-function onPivotContentReady(e) {
-  const root = e.element
-  const dataHeaderCell = root.querySelector('.dx-data-header')
-  const dataFields = dataHeaderCell?.querySelector('.dx-area-fields')
-  const columnFields = root.querySelector('.dx-column-header .dx-area-fields')
-  if (!dataHeaderCell || !dataFields) return
-  // Önce sıfırla ki ölçümler doğal konumdan yapılsın
-  dataFields.style.transform = ''
-  if (columnFields) columnFields.style.transform = ''
-  const descW = dataHeaderCell.getBoundingClientRect().width
-  const totalW = dataHeaderCell.parentElement.getBoundingClientRect().width
-  const dataW = chipsWidth(dataFields)
-  const colW = columnFields ? chipsWidth(columnFields) : 0
-  // Hedef: descW'den başla; şerit (dataW+colW) toplam genişliğe sığmıyorsa
-  // başlangıcı sola çek (min 0 — widget dışına çıkma)
-  const startX = Math.max(0, Math.min(descW, totalW - (dataW + colW)))
-  dataFields.style.transform = `translateX(${startX}px)`
-  if (columnFields) {
-    // Kolon grubu doğal olarak descW'de; ölçülerin bittiği noktaya götür
-    columnFields.style.transform = `translateX(${startX + dataW - descW}px)`
-  }
-}
+// NOT: Eskiden burada ölçü çiplerini veri sütunlarıyla hizalayan bir CSS
+// transform hilesi vardı. Kaldırıldı — kök nedeni çözmüyordu: çipler DOM'da
+// sol üst köşe hücresinde (.dx-data-header) kaldığı için tablo layout'u
+// genişliği ORADAN ölçüyor; çok ölçü eklenince (9 KPI ≈ 1000px şerit) satır
+// başlık kolonu ekranın yarısını yutuyordu. Çözüm: ölçü çipleri panelde hiç
+// gösterilmiyor (fieldPanel.showDataFields:false) — ölçüler Field Chooser'ın
+// checkbox'larından yönetiliyor; satır başlıkları da rowHeaderLayout:'tree'
+// ile tek kolona indirildi.
 </script>
 
 <template>
@@ -448,9 +407,9 @@ function onPivotContentReady(e) {
       <DxPivotGrid
         ref="pivotRef"
         :data-source="dataSource"
-        @content-ready="onPivotContentReady"
         @cell-click="onPivotCellClick"
         :scrolling="{ mode: 'virtual' }"
+        row-header-layout="tree"
         :allow-sorting-by-summary="true"
         :allow-sorting="true"
         :allow-filtering="true"
@@ -461,7 +420,10 @@ function onPivotContentReady(e) {
           allowFieldDragging: true,
           showRowFields: true,
           showColumnFields: true,
-          showDataFields: true,
+          // Ölçü çipleri panelde YOK (bilinçli): DOM'da sol köşe hücresinde
+          // yaşıyorlar ve çok ölçüde satır başlık kolonunu şişiriyorlardı.
+          // Ölçü ekle/çıkar = Field Chooser checkbox'ları.
+          showDataFields: false,
           showFilterFields: true,
         }"
         :field-chooser="{ enabled: true, height: 520 }"
