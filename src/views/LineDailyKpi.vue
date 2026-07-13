@@ -101,6 +101,29 @@ async function exportExcel() {
     notify('Export failed — see console for details', 'error', 3000)
   }
 }
+
+// PDF: DevExtreme'in RESMÎ pdf_exporter'ı (jsPDF üstüne kurulu) — CustomReport'taki
+// elle autotable kurulumunun aksine grid'i tek çağrıyla döker (filtreli görünüm,
+// kolon başlıkları, sayfalara bölme dahil). Not: resmî PDF exporter yalnız
+// DataGrid+Gantt destekler; PivotGrid için PDF resmî olarak yok.
+async function exportPdf() {
+  try {
+    const grid = gridRef.value?.instance
+    if (!grid) return
+    const [{ exportDataGrid: exportGridToPdf }, { jsPDF }] = await Promise.all([
+      import('devextreme/pdf_exporter'),
+      import('jspdf'),
+    ])
+    const doc = new jsPDF({ orientation: 'landscape' })
+    await exportGridToPdf({ jsPDFDocument: doc, component: grid })
+    const d = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    doc.save(`line-daily-kpi-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.pdf`)
+  } catch (err) {
+    console.error('[export]', err)
+    notify('Export failed — see console for details', 'error', 3000)
+  }
+}
 </script>
 
 <template>
@@ -139,6 +162,13 @@ async function exportExcel() {
           styling-mode="outlined"
           hint="Export Excel"
           @click="exportExcel"
+        />
+        <DxButton
+          icon="exportpdf"
+          type="danger"
+          styling-mode="outlined"
+          hint="Export PDF"
+          @click="exportPdf"
         />
         <DxButton
           icon="clear"
