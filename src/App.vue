@@ -4,6 +4,7 @@ import AppSidebar from './layout/AppSidebar.vue'
 import AppTopbar from './layout/AppTopbar.vue'
 import LineDailyKpi from './views/LineDailyKpi.vue'
 import CustomReport from './views/CustomReport.vue'
+import PivotAnalysis from './views/PivotAnalysis.vue'
 
 // Basit view yönlendirme (router yerine): sidebar 'active' anahtarını view'e eşler.
 const active = ref('line-daily-kpi')
@@ -11,6 +12,7 @@ const active = ref('line-daily-kpi')
 const VIEWS = {
   'line-daily-kpi': { comp: LineDailyKpi, title: 'Reports · Line Daily KPI' },
   'custom-report': { comp: CustomReport, title: 'Reports · Custom Report' },
+  'pivot-analysis': { comp: PivotAnalysis, title: 'Reports · Pivot Analysis' },
 }
 
 const current = computed(() => VIEWS[active.value] || null)

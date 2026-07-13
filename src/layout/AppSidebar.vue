@@ -26,6 +26,7 @@ const reportsAnalysis = [
 const reportsGeneral = [
   { key: 'line-daily-kpi', label: 'Line Daily KPI' },
   { key: 'custom-report', label: 'Custom Report' },
+  { key: 'pivot-analysis', label: 'Pivot Analysis' },
   { key: 'daily', label: 'Daily' },
   { key: 'weekly', label: 'Weekly' },
   { key: 'monthly', label: 'Monthly' },
