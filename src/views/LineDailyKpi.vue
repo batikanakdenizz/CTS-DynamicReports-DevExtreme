@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 // DxDataGrid: PrimeVue DataTable'ın karşılığı — ama filtre satırı, header filter,
 // arama paneli, sayfalama gibi özellikler ayrı alt-bileşen etiketleriyle AÇILIR
 // (PrimeVue'da prop'tu: paginator, filterDisplay...; burada <DxPaging/> gibi).
@@ -12,9 +12,9 @@ import {
   DxPaging,
   DxPager,
 } from 'devextreme-vue/data-grid'
-// Editör bileşenleri: DatePicker -> DxDateBox, MultiSelect -> DxTagBox.
-// Bunlar v-model:value destekler (ButtonGroup'un aksine).
-import { DxDateBox } from 'devextreme-vue/date-box'
+// Editör bileşenleri: başlangıç+bitiş TEK kontrolde (DxDateRangeBox, v23+),
+// MultiSelect -> DxTagBox. İkisi de v-model:value destekler.
+import { DxDateRangeBox } from 'devextreme-vue/date-range-box'
 import { DxTagBox } from 'devextreme-vue/tag-box'
 import { DxButton } from 'devextreme-vue/button'
 import notify from 'devextreme/ui/notify'
@@ -32,6 +32,14 @@ const daysAgo = (n) => {
 }
 const startDate = ref(daysAgo(29))
 const endDate = ref(new Date(today))
+// DateRangeBox köprüsü: value = [start, end]; iç model (iki ref) değişmez
+const dateRange = computed({
+  get: () => [startDate.value, endDate.value],
+  set: (v) => {
+    startDate.value = v?.[0] ?? null
+    endDate.value = v?.[1] ?? null
+  },
+})
 const selectedLines = ref(LINE_OPTIONS.map((o) => o.value))
 
 const allRows = ref(generateRows(30))
@@ -107,12 +115,8 @@ async function exportExcel() {
     <!-- Filtre çubuğu -->
     <div class="lp-filter-bar">
       <div class="lp-field">
-        <label>Start Date</label>
-        <DxDateBox v-model:value="startDate" display-format="dd.MM.yyyy" :width="170" />
-      </div>
-      <div class="lp-field">
-        <label>End Date</label>
-        <DxDateBox v-model:value="endDate" display-format="dd.MM.yyyy" :width="170" />
+        <label>Date Range</label>
+        <DxDateRangeBox v-model:value="dateRange" display-format="dd.MM.yyyy" :width="300" />
       </div>
       <div class="lp-field">
         <label>Line</label>

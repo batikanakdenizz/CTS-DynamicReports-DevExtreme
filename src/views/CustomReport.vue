@@ -6,7 +6,7 @@ import { ref, computed, onMounted } from 'vue'
 import { DxDrawer } from 'devextreme-vue/drawer'
 import { DxTagBox } from 'devextreme-vue/tag-box'
 import { DxButtonGroup } from 'devextreme-vue/button-group'
-import { DxDateBox } from 'devextreme-vue/date-box'
+import { DxDateRangeBox } from 'devextreme-vue/date-range-box'
 import { DxButton } from 'devextreme-vue/button'
 import { DxDataGrid, DxColumn, DxPaging, DxPager } from 'devextreme-vue/data-grid'
 import { DxSelectBox } from 'devextreme-vue/select-box'
@@ -119,6 +119,16 @@ const definition = computed(() => ({
     lines: selectedLines.value,
   },
 }))
+
+// DateRangeBox köprüsü: UI tek kontrol, MODEL yine iki ayrı ref (startDate/
+// endDate) — definition, saved reports şeması ve drill-down aynen çalışır.
+const dateRange = computed({
+  get: () => [startDate.value, endDate.value],
+  set: (v) => {
+    startDate.value = v?.[0] ?? null
+    endDate.value = v?.[1] ?? null
+  },
+})
 
 const report = computed(() => runReport(definition.value, allRows))
 const hasData = computed(() => selectedMeasures.value.length > 0 && report.value.rows.length > 0)
@@ -553,12 +563,8 @@ function resetAll() {
           <div class="cr-divider"></div>
 
           <div class="cr-field">
-            <label>{{ t('field.startDate') }}</label>
-            <DxDateBox v-model:value="startDate" display-format="dd.MM.yyyy" class="cr-w" />
-          </div>
-          <div class="cr-field">
-            <label>{{ t('field.endDate') }}</label>
-            <DxDateBox v-model:value="endDate" display-format="dd.MM.yyyy" class="cr-w" />
+            <label>{{ t('field.dateRange') }}</label>
+            <DxDateRangeBox v-model:value="dateRange" display-format="dd.MM.yyyy" class="cr-w" />
           </div>
           <div class="cr-field">
             <label>{{ t('field.line') }}</label>
