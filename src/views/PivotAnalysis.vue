@@ -174,9 +174,26 @@ const BIND_OPTIONS = {
   // satır yolu stack olur → her satır grubu KENDİ yığınında %100'e
   // tamamlanır. Bunsuz tüm seriler tek yığına biner (%200 kule).
   // stack özelliği stacked olmayan tiplerde yok sayılır — hep set etmek zararsız.
+  //
+  // GİZLİ ÖLÇÜ FİLTRESİ: alanlardaki visible:false yalnız PİVOT hücrelerini
+  // gizler; bindChart TÜM data alanlarını seriye çevirir. Yardımcı sum'lar
+  // (Theo Volume, Planned Loss Vol...) milyarlık ölçekleriyle yüzde KPI'larını
+  // ezer ve legend'ı doldurur. Beyaz liste dışındaki seriler grafikten ve
+  // legend'dan düşürülür (pivot hücre hesabı etkilenmez).
   customizeSeries: (seriesName, seriesOptions) => {
-    const parts = String(seriesName).split(' | ')
-    seriesOptions.stack = parts.slice(0, -1).join(' | ') || String(seriesName)
+    const name = String(seriesName)
+    const kpi = name.split(' | ').pop()
+    const CHART_KPIS = [
+      'Up Time %', 'Reject Loss %', 'Planned DT %', 'Unplanned DT %', 'Rate Loss %',
+      'Volume (sum)', 'Stops (sum)', 'MTBF (dk)', 'Volume %GT',
+    ]
+    if (!CHART_KPIS.includes(kpi)) {
+      seriesOptions.visible = false
+      seriesOptions.showInLegend = false
+      return
+    }
+    const parts = name.split(' | ')
+    seriesOptions.stack = parts.slice(0, -1).join(' | ') || name
   },
 }
 
