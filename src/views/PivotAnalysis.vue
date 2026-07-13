@@ -9,6 +9,11 @@ import { DxPivotGrid } from 'devextreme-vue/pivot-grid'
 // sütun=argüman). Seri/eksen tanımını BİZ yazmayız — pivot üretir.
 import { DxChart, DxCommonSeriesSettings, DxSize, DxTooltip, DxLegend } from 'devextreme-vue/chart'
 import { DxButtonGroup } from 'devextreme-vue/button-group'
+import { DxButton } from 'devextreme-vue/button'
+// Drill-down popup'ı: pivot hücresinin ARKASINDAKİ ham satırlar
+import { DxPopup } from 'devextreme-vue/popup'
+import { DxDataGrid } from 'devextreme-vue/data-grid'
+import notify from 'devextreme/ui/notify'
 // DataSource ayrı bir sınıf: alan tanımları + veri deposu + pivot durumu
 // (hangi alan hangi bölgede) hep bu nesnede yaşar. Grid sadece çizer.
 import PivotGridDataSource from 'devextreme/ui/pivot_grid/data_source'
@@ -135,6 +140,16 @@ function measureFields() {
         return stops ? cell.value('totalRuntime') / stops : null
       },
     },
+    {
+      // summaryDisplayMode vitrini: aynı sum'ı PivotGrid kendisi genel toplama
+      // oranlar — "toplam hacmin yüzde kaçı bu hücrede?" Detaylı veride anlam
+      // kazanan hazır özelleştirmelerden (percentOfRow/ColumnGrandTotal da var).
+      caption: 'Volume %GT',
+      dataField: 'volume',
+      summaryType: 'sum',
+      summaryDisplayMode: 'percentOfGrandTotal',
+      isMeasure: true,
+    },
   ]
 }
 
@@ -219,6 +234,86 @@ function onSourceChanged(e) {
   if (unbindChart) unbindChart()
   pivot.option('dataSource', makeDataSource(val))
   unbindChart = pivot.bindChart(chartRef.value.instance, BIND_OPTIONS)
+}
+
+// --- Excel export (exportPivotGrid) -----------------------------------------
+// Grid'dekiyle aynı kalıp, farklı fonksiyon: exportPivotGrid pivot GÖRÜNÜMÜNÜ
+// (hiyerarşi girintileri, ara/genel toplamlar dahil) çalışma sayfasına döker.
+async function exportExcel() {
+  try {
+    const [{ exportPivotGrid }, ExcelJSmod, fsMod] = await Promise.all([
+      import('devextreme/excel_exporter'),
+      import('exceljs'),
+      import('file-saver'),
+    ])
+    const Workbook = ExcelJSmod.Workbook ?? ExcelJSmod.default.Workbook
+    const saveAs = fsMod.saveAs ?? fsMod.default
+    const workbook = new Workbook()
+    const worksheet = workbook.addWorksheet('Pivot')
+    await exportPivotGrid({ component: pivotRef.value.instance, worksheet })
+    const buffer = await workbook.xlsx.writeBuffer()
+    const d = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    saveAs(
+      new Blob([buffer], { type: 'application/octet-stream' }),
+      `pivot-analysis-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.xlsx`
+    )
+  } catch (err) {
+    console.error('[export]', err)
+    notify('Export failed — see console for details', 'error', 3000)
+  }
+}
+
+// --- Pivot düzenini kaydet/yükle (PivotGridDataSource.state) -----------------
+// Widget'ın hazır stateStoring'i tek storageKey ile çalışır; bizde İKİ kaynak
+// (demo/real, farklı alan setleri) arasında geçiş var — yanlış kaynağın state'i
+// diğerine uygulanırdı. Aynı API'nin (state get/set) elle kullanımı hem çakışmayı
+// çözer hem mekanizmayı öğretir: state = alanların bölge/expand/filtre/sıralama
+// durumu (VERİ DEĞİL) — saved reports'un pivot karşılığı.
+const stateKey = () => `pv-pivot-state-${activeSource.value}`
+
+function saveLayout() {
+  try {
+    const state = pivotRef.value.instance.getDataSource().state()
+    localStorage.setItem(stateKey(), JSON.stringify(state))
+    notify('Düzen kaydedildi', 'success', 1500)
+  } catch (err) {
+    console.error('[layout]', err)
+    notify('Düzen kaydedilemedi', 'error', 2500)
+  }
+}
+
+function loadLayout() {
+  try {
+    const raw = localStorage.getItem(stateKey())
+    if (!raw) {
+      notify('Bu kaynak için kayıtlı düzen yok', 'warning', 2000)
+      return
+    }
+    pivotRef.value.instance.getDataSource().state(JSON.parse(raw))
+    notify('Düzen yüklendi', 'success', 1500)
+  } catch (err) {
+    console.error('[layout]', err)
+    notify('Düzen yüklenemedi', 'error', 2500)
+  }
+}
+
+// --- Hücre drill-down (createDrillDownDataSource) ----------------------------
+// Data hücresine tıkla → o hücreyi oluşturan HAM satırlar popup'ta. Pivot'un
+// "bu sayı nereden geldi?" cevabı; denetim/şüphe anlarının özelliği.
+const drillVisible = ref(false)
+const drillDataSource = ref(null)
+const drillTitle = ref('')
+
+function onPivotCellClick(e) {
+  if (e.area !== 'data' || !e.cell) return
+  const ds = pivotRef.value.instance.getDataSource()
+  drillDataSource.value = ds.createDrillDownDataSource(e.cell)
+  const path = [...(e.cell.rowPath ?? []), ...(e.cell.columnPath ?? [])]
+    .map((v) => (v instanceof Date ? v.toLocaleDateString() : v))
+    .join(' · ')
+  drillTitle.value = path ? `Ham kayıtlar — ${path}` : 'Ham kayıtlar'
+  drillVisible.value = true
 }
 
 // --- Grafik tipi seçici ------------------------------------------------------
@@ -335,6 +430,11 @@ function onPivotContentReady(e) {
           styling-mode="outlined"
           @selection-changed="onTypeChanged"
         />
+        <div class="pv-actions">
+          <DxButton icon="save" styling-mode="outlined" hint="Pivot düzenini kaydet" @click="saveLayout" />
+          <DxButton icon="folder" styling-mode="outlined" hint="Kayıtlı düzeni yükle" @click="loadLayout" />
+          <DxButton icon="exportxlsx" type="success" styling-mode="outlined" hint="Excel'e aktar" @click="exportExcel" />
+        </div>
       </div>
       <DxChart ref="chartRef">
         <DxSize :height="320" />
@@ -349,6 +449,8 @@ function onPivotContentReady(e) {
         ref="pivotRef"
         :data-source="dataSource"
         @content-ready="onPivotContentReady"
+        @cell-click="onPivotCellClick"
+        :scrolling="{ mode: 'virtual' }"
         :allow-sorting-by-summary="true"
         :allow-sorting="true"
         :allow-filtering="true"
@@ -365,6 +467,27 @@ function onPivotContentReady(e) {
         :field-chooser="{ enabled: true, height: 520 }"
         height="640"
       />
+
+      <!-- Drill-down: hücrenin ham kayıtları. Kolon tanımı YOK — grid satır
+           nesnelerinden türetir (iki kaynağın alan setleri farklı, ikisinde de
+           çalışsın). -->
+      <DxPopup
+        v-model:visible="drillVisible"
+        :title="drillTitle"
+        :width="960"
+        :height="560"
+        :show-close-button="true"
+        :drag-enabled="true"
+      >
+        <DxDataGrid
+          :data-source="drillDataSource"
+          :column-auto-width="true"
+          :show-borders="true"
+          :paging="{ pageSize: 10 }"
+          :pager="{ showInfo: true }"
+          height="100%"
+        />
+      </DxPopup>
     </div>
   </div>
 </template>
@@ -379,6 +502,10 @@ function onPivotContentReady(e) {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+.pv-actions {
+  display: flex;
+  gap: 0.4rem;
 }
 .pv-card :deep(.dx-pivotgrid) {
   font-size: 0.82rem;
