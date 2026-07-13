@@ -17,7 +17,10 @@ import { loadRealKpiRows } from '../data/realKpiData.js'
 
 // İki veri kaynağı: demo (vardiya×makine×ürün granülü, üretilmiş) ve gerçek
 // sistem export'u (line×gün granülü, gitignore'lu dosyadan; yoksa boş).
-const demoRows = generateDetailedRows(30)
+// 730 gün = 2 tam yıl: Year/Quarter/Month hiyerarşisi gerçekten dallansın
+// (30 günde sadece 2 ay görünüyordu). 2 hat × 730 gün × 3 vardiya × 3 makine
+// = 13.140 satır — virtual scrolling ile sorunsuz.
+const demoRows = generateDetailedRows(730)
 const realRows = loadRealKpiRows()
 
 // --- KPI yardımcıları -------------------------------------------------------
@@ -61,6 +64,7 @@ const DEMO_DIMENSIONS = [
   // SÜTUN: tarih hiyerarşisi — aynı dataField, farklı groupInterval.
   // (Not: ISO hafta yok; istenirse selector ile custom alan yazılır.)
   { caption: 'Year', dataField: 'date', dataType: 'date', groupInterval: 'year', area: 'column' },
+  { caption: 'Quarter', dataField: 'date', dataType: 'date', groupInterval: 'quarter', area: 'column' },
   { caption: 'Month', dataField: 'date', dataType: 'date', groupInterval: 'month', area: 'column' },
   // FİLTRE: kullanıcı isterse satıra/sütuna sürükler (fieldPanel)
   { caption: 'Shift', dataField: 'shift', area: 'filter' },
@@ -184,9 +188,9 @@ onMounted(() => {
 // bindChart bağı kurulduğu ANDAKİ dataSource'a abone olur; kaynak değişince
 // eski bağ çözülüp yeni dataSource set edildikten SONRA yeniden bağlanır.
 const DATA_SOURCES = [
-  { value: 'demo', text: 'Demo (vardiya granülü)' },
+  { value: 'demo', text: 'Demo ' },
   // Gerçek export dosyası gitignore'lu — bu makinede yoksa buton pasif
-  { value: 'real', text: 'Gerçek (LineDailyKpi)', disabled: realRows.length === 0 },
+  { value: 'real', text: '', disabled: realRows.length === 0 },
 ]
 const activeSource = ref('demo')
 const selectedSourceKeys = computed(() => [activeSource.value])
