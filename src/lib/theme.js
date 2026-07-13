@@ -6,6 +6,11 @@
 // Tercih localStorage'da tutulur.
 import { ref } from 'vue'
 import themes from 'devextreme/ui/themes'
+// Viz bileşenleri (Chart/PieChart/PivotGrid'e bağlı grafik) SVG çizer;
+// renkler çizim ANINDA tema sabitlerinden basılır, CSS geçişini takip etmez.
+// themes.current() sonrası refreshTheme() çağrılmazsa eski temanın renkleri
+// (ör. koyu temanın beyaz legend yazısı) açık zeminde kalır.
+import { refreshTheme } from 'devextreme/viz/themes'
 
 const KEY = 'cr-dark'
 export const isDark = ref(false)
@@ -14,6 +19,7 @@ export function applyDark(v) {
   isDark.value = v
   document.documentElement.classList.toggle('dark-mode', v)
   themes.current(v ? 'fluent.blue.dark' : 'fluent.blue.light')
+  refreshTheme()
   try {
     localStorage.setItem(KEY, v ? '1' : '0')
   } catch { /* gizli mod / kota — sessiz geç */ }
