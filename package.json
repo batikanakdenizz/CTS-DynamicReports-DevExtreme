@@ -1,7 +1,12 @@
 {
   "name": "custom-report-devextreme",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "LinePulse Custom Report Builder — DevExtreme implementation (Vue 3): user-defined reports from a serializable definition model, plus pivot analysis and table reports",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/batikanakdenizz/CTS-DynamicReports-DevExtreme.git"
+  },
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-dx-themes.mjs",
