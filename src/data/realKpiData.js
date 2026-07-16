@@ -15,11 +15,12 @@
 // Rapordaki yüzdeler karışık tabanlı: Up Time %, Reject Loss % HACİM tabanlı
 // (volume/theoVolume), Planned/Unplanned DT % ZAMAN tabanlı (süre/scheduledTime).
 // Duruş sürelerini satırın TEORİK hızıyla (theoVolume/scheduledTime — design
-// speed DEĞİL, veri bunu doğruluyor: 8800/dk > 8400 design) hacme çevirince:
+// speed DEĞİL; export'ta teorik hız design hızın üstüne çıkabiliyor) hacme
+// çevirince:
 //   plannedLossVol/theoVolume = süre/scheduledTime  → raporun yüzdesi birebir
 // ve beş kova (volume+reject+planned+unplanned+rate) tam theoVolume'a tamamlanır
 // → %100 invariant her toplama seviyesinde korunur. Rate kalan olarak hesaplanır
-// ve gerçek veride NEGATİF olabilir (hat teorik hızın üstünde koşmuş, ör. -1.32).
+// ve gerçek veride NEGATİF olabilir (hat teorik hızın üstünde koşmuş).
 
 const files = import.meta.glob('./lineDailyKpiReport.json', {
   eager: true,
