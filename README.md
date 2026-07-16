@@ -169,6 +169,8 @@ needed; run status is on the repo's **Actions** tab.
 
 ## Licensing
 
+The code in this repository is released under the [MIT License](LICENSE).
+
 DevExtreme is a commercial DevExpress product. The public demo runs under an
 evaluation license (hence the banner); registering a license key removes it.
 

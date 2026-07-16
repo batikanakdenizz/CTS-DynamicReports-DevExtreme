@@ -2,6 +2,7 @@
   "name": "custom-report-devextreme",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "description": "LinePulse Custom Report Builder — DevExtreme implementation (Vue 3): user-defined reports from a serializable definition model, plus pivot analysis and table reports",
   "repository": {
     "type": "git",
