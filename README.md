@@ -14,7 +14,11 @@ between the two.
 
 **🔗 Live demo:** https://batikanakdenizz.github.io/CTS-DynamicReports-DevExtreme/
 
-> All data is **dummy** (deterministic seeded generator). When the real API is
+> Data is **dummy** by default (deterministic seeded generator). The repo ships
+> no real data: a real LinePulse export can optionally be dropped in locally as
+> `src/data/lineDailyKpiReport.json` (gitignored), and the Pivot Analysis
+> screen then offers it as a second data source — if the file is absent the
+> loader returns empty and the build is unaffected. When the real API is
 > connected, only the data-source layer changes; the report engine and the UI
 > stay the same.
 
@@ -47,6 +51,14 @@ between the two.
 - **Line Daily KPI** — a reference shell of the real LinePulse 28-column table
   report: per-column filter row, header filters, global search, resizable
   columns and one-click Excel export — all `DxDataGrid` built-ins.
+- **Pivot Analysis** — free-form multi-dimensional exploration with
+  `DxPivotGrid`: row × column cross-tabs, drag-and-drop field re-arrangement
+  (field chooser + field panel), a date hierarchy (year / quarter / month), a
+  pivot-driven chart (`bindChart` — the pivot state defines the series) and
+  cell drill-down to the underlying raw rows in a popup. Derived KPIs follow
+  the same num/den rule via hidden sum fields, so the 100% invariant holds at
+  every subtotal and grand-total level. See
+  `docs/devextreme-pivotgrid-documentation.md` for the full field guide.
 
 ## Architecture
 
@@ -108,6 +120,8 @@ npm run preview    # preview the build locally
 ```
 .
 ├── .github/workflows/deploy.yml   # automatic GitHub Pages deploy (CI/CD)
+├── docs/
+│   └── devextreme-pivotgrid-documentation.md  # DxPivotGrid field guide
 ├── index.html                     # dx-theme links (light/dark), Inter font
 ├── vite.config.js                 # base: /CTS-DynamicReports-DevExtreme/
 ├── scripts/
@@ -120,21 +134,28 @@ npm run preview    # preview the build locally
     │   └── AppTopbar.vue          # title + language (DxButtonGroup) / theme switches
     ├── views/
     │   ├── CustomReport.vue       # report builder (the main screen)
-    │   └── LineDailyKpi.vue       # 28-column table report (DxDataGrid reference)
+    │   ├── LineDailyKpi.vue       # 28-column table report (DxDataGrid reference)
+    │   └── PivotAnalysis.vue      # free-form pivot exploration (DxPivotGrid)
     ├── data/
     │   ├── dummyData.js           # deterministic dummy records (line × day)
+    │   ├── detailedData.js        # richer dummy set for the pivot (shift × machine × product)
+    │   ├── realKpiData.js         # optional loader for a gitignored real export
     │   └── reportCatalog.js       # MEASURES (raw + derived) & DIMENSIONS catalog
     └── lib/
         ├── reportEngine.js        # definition -> { columns, rows } (pure function)
         ├── i18n.js                # lightweight TR/EN translation layer
+        ├── dxLocale.js            # DevExtreme widget-internal texts (TR/EN)
         └── theme.js               # dark-mode state (shell CSS + themes.current)
 ```
 
 ## Deployment
 
 Every push to `main` is built and published to GitHub Pages via GitHub Actions
-(`.github/workflows/deploy.yml`): `npm ci` → `vite build` → Pages artifact.
-No manual deploy is needed; run status is on the repo's **Actions** tab.
+(`.github/workflows/deploy.yml`): `npm install` → `vite build` → Pages
+artifact. `npm ci` is deliberately not used: a lockfile generated on Windows
+cannot record the Linux/WASM optional dependency tree, so `npm ci` fails on
+the Ubuntu runner (details in the workflow comment). No manual deploy is
+needed; run status is on the repo's **Actions** tab.
 
 ## Switching to Real Data
 
