@@ -151,9 +151,4 @@ No manual deploy is needed; run status is on the repo's **Actions** tab.
 DevExtreme is a commercial DevExpress product. The public demo runs under an
 evaluation license (hence the banner); registering a license key removes it.
 
-## Roadmap
 
-- [ ] Unit tests for the report engine (100% loss-invariant, ISO-week bucketing)
-- [ ] Real API integration (field mapping)
-- [ ] Additional dimensions: Production Center, Shift, Machine, Stop Reason
-- [ ] Combo chart (stacked bar + Uptime line) and KPI cards
