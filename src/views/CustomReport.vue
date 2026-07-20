@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 // PrimeVue Drawer viewport üstüne açılan bir overlay'di; DxDrawer ise bir LAYOUT
 // bileşeni: default slot'taki içeriği sarar, paneli 'template' prop'unda verilen
 // named template'ten alır ve 'overlap' modunda içeriğin üstüne kaydırır.
@@ -36,7 +36,12 @@ import {
   DxTooltip as DxPieTooltip,
 } from 'devextreme-vue/pie-chart'
 
-import { generateRows, LINE_OPTIONS } from '../data/dummyData.js'
+import {
+  generateCascadeRows,
+  LINE_OPTIONS,
+  machinesForLines,
+  productsForMachines,
+} from '../data/dummyData.js'
 import {
   MEASURES,
   MEASURE_OPTIONS,
@@ -50,8 +55,9 @@ import { runReport, formatValue } from '../lib/reportEngine.js'
 import { t } from '../lib/i18n.js'
 import { isDark } from '../lib/theme.js'
 
-// Ortak veri kaynağı (shell'in generateRows'u)
-const allRows = generateRows(30)
+// Cascade veri kaynağı (hat×gün×makine grünülü — bkz. dummyData.js).
+// Line Daily KPI ekranı ayrı generateRows()'u kullanır, bu değişiklik onu etkilemez.
+const allRows = generateCascadeRows(30)
 
 // Kriter paneli (Report Builder) drawer içinde: Show/Hide ile açılıp kapanır
 const builderOpen = ref(false)
@@ -75,6 +81,8 @@ const makeDefaults = () => ({
   granularity: 'day',
   chartType: 'bar',
   lines: [DEFAULT_LINE],
+  machines: [],
+  products: [],
   startDate: daysAgo(29),
   endDate: new Date(today),
 })
@@ -88,6 +96,29 @@ const chartType = ref(d0.chartType)
 const startDate = ref(d0.startDate)
 const endDate = ref(d0.endDate)
 const selectedLines = ref(d0.lines)
+const selectedMachines = ref(d0.machines)
+const selectedProducts = ref(d0.products)
+
+// Bağlı (cascading) filtre seçenekleri: Machine, seçili Line'lara; Product,
+// seçili Machine'lere göre daralır. Boş seçim = "kısıtlama yok" (üst tüm
+// seçeneklerin birleşimi) — motorun filters.length===0 kuralıyla tutarlı.
+const machineOptions = computed(() =>
+  machinesForLines(selectedLines.value).map((m) => ({ label: m, value: m }))
+)
+const productOptions = computed(() => {
+  const basis = selectedMachines.value.length ? selectedMachines.value : machineOptions.value.map((o) => o.value)
+  return productsForMachines(basis).map((p) => ({ label: p, value: p }))
+})
+
+// Üst filtre daraldığında altta artık geçersiz olan seçimleri temizle.
+watch(selectedLines, () => {
+  const allowed = new Set(machineOptions.value.map((o) => o.value))
+  selectedMachines.value = selectedMachines.value.filter((m) => allowed.has(m))
+})
+watch(selectedMachines, () => {
+  const allowed = new Set(productOptions.value.map((o) => o.value))
+  selectedProducts.value = selectedProducts.value.filter((p) => allowed.has(p))
+})
 
 // DxTagBox gruplu veri {key, items} bekler (PrimeVue: optionGroupLabel/Children'dı)
 const measureItems = MEASURE_OPTIONS.map((g) => ({ key: g.label, items: g.items }))
@@ -117,6 +148,8 @@ const definition = computed(() => ({
     dateFrom: startDate.value,
     dateTo: endDate.value,
     lines: selectedLines.value,
+    machines: selectedMachines.value,
+    products: selectedProducts.value,
   },
 }))
 
@@ -223,6 +256,8 @@ function currentDef() {
     granularity: dateGranularity.value,
     chartType: chartType.value,
     lines: [...selectedLines.value],
+    machines: [...selectedMachines.value],
+    products: [...selectedProducts.value],
     startDate: toISO(startDate.value),
     endDate: toISO(endDate.value),
   }
@@ -234,6 +269,8 @@ function applyDef(def) {
   dateGranularity.value = def.granularity ?? 'day'
   chartType.value = def.chartType ?? 'bar'
   selectedLines.value = [...(def.lines ?? [])]
+  selectedMachines.value = [...(def.machines ?? [])]
+  selectedProducts.value = [...(def.products ?? [])]
   startDate.value = fromISO(def.startDate)
   endDate.value = fromISO(def.endDate)
 }
@@ -457,6 +494,14 @@ onMounted(() => {
 const cellText = (col) =>
   col.isDimension ? undefined : (cellInfo) => formatValue(cellInfo.value, col.format)
 
+// Kolon SETİ (sayı/sıra) değiştiğinde grid'i tamamen yeniden mount et. DxDataGrid,
+// dimensions değişip yeni bir kolon araya girince (örn. Machine, Line ile ölçümler
+// arasına eklenince) kolon<->hücre eşleşmesini içeride yanlış günceller — bir ölçüm
+// kolonunun customizeText'i başka kolonun hücresine uygulanıp formatValue'ya string
+// gidip patlıyordu (value.toFixed satırında). :key ile zorla remount bu sınıf
+// hataları kökten kapatır (widget'ı patchlemek yerine baştan kurar).
+const gridColumnsKey = computed(() => report.value.columns.map((c) => c.key).join('|'))
+
 function resetAll() {
   // Ekranı boşaltmaz — makul varsayılanlara döner (Line: Link-up 38, son 30 gün).
   const d = makeDefaults()
@@ -465,6 +510,8 @@ function resetAll() {
   dateGranularity.value = d.granularity
   chartType.value = d.chartType
   selectedLines.value = d.lines
+  selectedMachines.value = d.machines
+  selectedProducts.value = d.products
   startDate.value = d.startDate
   endDate.value = d.endDate
   drillStack.value = []
@@ -576,6 +623,32 @@ function resetAll() {
               :show-selection-controls="true"
               :max-displayed-tags="2"
               :placeholder="t('ph.line')"
+              class="cr-w"
+            />
+          </div>
+          <div class="cr-field">
+            <label>{{ t('field.machine') }}</label>
+            <DxTagBox
+              v-model:value="selectedMachines"
+              :items="machineOptions"
+              display-expr="label"
+              value-expr="value"
+              :show-selection-controls="true"
+              :max-displayed-tags="2"
+              :placeholder="t('ph.machine')"
+              class="cr-w"
+            />
+          </div>
+          <div class="cr-field">
+            <label>{{ t('field.product') }}</label>
+            <DxTagBox
+              v-model:value="selectedProducts"
+              :items="productOptions"
+              display-expr="label"
+              value-expr="value"
+              :show-selection-controls="true"
+              :max-displayed-tags="2"
+              :placeholder="t('ph.product')"
               class="cr-w"
             />
           </div>
@@ -806,6 +879,7 @@ function resetAll() {
               </div>
             </div>
             <DxDataGrid
+              :key="gridColumnsKey"
               ref="dsGridRef"
               :data-source="report.rows"
               :show-row-lines="true"
