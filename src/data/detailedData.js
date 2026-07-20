@@ -14,20 +14,15 @@
 // Pivot tarafı bu kolonların sum'ını alıp theoVolume sum'ına böler → %100
 // invariant her hiyerarşi seviyesinde (ara toplam + genel toplam) korunur.
 
-const LINES = [
-  { name: 'Link-up 38', machines: ['Filler', 'Packer', 'Palletizer'] },
-  { name: 'Link-Up-37', machines: ['Filler', 'Packer', 'Palletizer'] },
-]
+// Hat/Makine/Ürün topolojisi artık lineTopology.js'te — Custom Report'un
+// cascade filtreleriyle AYNI kaynak, iki ekran arasında tutarsız hat/makine
+// tanımı olmasın diye (Link-Up-37: Filler+Labeler, önceden burada yanlışlıkla
+// Filler+Packer+Palletizer idi — Custom Report'tan farklıydı).
+import { LINE_TOPOLOGY, MACHINE_SPEED, MACHINE_PRODUCTS } from './lineTopology.js'
 
-// Makine bazında tasarım hızı farklı — Machine boyutu pivota anlam katsın diye
-const MACHINE_SPEED = { Filler: 8400, Packer: 7800, Palletizer: 6900 }
+const LINES = LINE_TOPOLOGY.map((t) => ({ name: t.line, machines: t.machines }))
 
 const SHIFTS = ['Shift 1 (00-08)', 'Shift 2 (08-16)', 'Shift 3 (16-24)']
-
-// Ürün dağılımı bilinçli DENGESİZ (50/30/20): pivotta eşit olmayan gruplar
-// gerçek veriye benzer davranış gösterir (feedback: "farklı verilerle dene")
-const PRODUCTS = ['SKU-Alpha', 'SKU-Beta', 'SKU-Gamma']
-const PRODUCT_WEIGHTS = [0.5, 0.3, 0.2]
 
 // Seed'li PRNG (dummyData ile aynı teknik) — her çağrı aynı veriyi üretir
 function mulberry32(seed) {
@@ -43,14 +38,13 @@ let rng = mulberry32(1)
 const rand = (min, max) => rng() * (max - min) + min
 const randInt = (min, max) => Math.floor(rand(min, max + 1))
 
-function pickProduct() {
-  const x = rng()
-  let acc = 0
-  for (let i = 0; i < PRODUCTS.length; i++) {
-    acc += PRODUCT_WEIGHTS[i]
-    if (x < acc) return PRODUCTS[i]
-  }
-  return PRODUCTS[0]
+// Ürün artık makineye göre kısıtlı (MACHINE_PRODUCTS) — eskiden makineden
+// bağımsız, düz ağırlıklı rastgele seçimdi (Machine->Product korelasyonu hiç
+// yoktu). Dengesizlik artık her makinenin ürettiği SKU sayısından doğal
+// olarak oluşuyor, ayrı bir ağırlık tablosuna gerek kalmadı.
+function pickProduct(machine) {
+  const opts = MACHINE_PRODUCTS[machine]
+  return opts[randInt(0, opts.length - 1)]
 }
 
 // Bir vardiya-makine satırı: 5 kova kesri toplam 1.0 kurulur (invariant
@@ -78,7 +72,7 @@ function makeShiftRow(line, machine, shift, date) {
     line,
     machine,
     shift,
-    product: pickProduct(),
+    product: pickProduct(machine),
     date, // JS Date — PivotGrid'in dataType:'date' + groupInterval hiyerarşisi için
     scheduledTime: scheduled,
     designTargetSpeed: speed,
@@ -95,7 +89,7 @@ function makeShiftRow(line, machine, shift, date) {
   }
 }
 
-// hat(2) × gün(30) × vardiya(3) × makine(3) = 540 satır
+// gün(30) × vardiya(3) × (hat başına makine sayısı, topolojiden) = 30×3×5 = 450 satır
 export function generateDetailedRows(days = 30) {
   rng = mulberry32(20260713) // deterministik: her çağrı aynı set
   const rows = []
