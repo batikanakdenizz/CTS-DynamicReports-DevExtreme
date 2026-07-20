@@ -155,3 +155,127 @@ export const COLUMNS = [
 ]
 
 export const LINE_OPTIONS = LINES.map((l) => ({ label: l, value: l }))
+
+// ---------------- CASCADE (bağlı filtre) DEMO VERİSİ ----------------
+// Custom Report'un "bağlı filtreler" özelliği için AYRI bir üreteç: yukarıdaki
+// generateRows/COLUMNS/LINES'a (Line Daily KPI ekranı de bunları kullanıyor)
+// dokunmuyoruz — satır granülerliği hat×gün×makineye çıkınca o ekranın satır/
+// kolon sayısı sessizce değişmesin diye.
+//
+// Gerçek ilişki: her Hat sabit bir Makine setine sahiptir; her Makine sadece
+// belirli Ürünleri (SKU) üretebilir. Bu yüzden Line -> Machine -> Product
+// filtreleri gerçekten birbirine bağlıdır (uydurma bir hiyerarşi değil).
+const LINE_TOPOLOGY = [
+  { line: 'Link-up 38', machines: ['Filler', 'Packer', 'Palletizer'] },
+  { line: 'Link-Up-37', machines: ['Filler', 'Labeler'] },
+]
+const MACHINE_SPEED = { Filler: 8400, Packer: 7800, Palletizer: 6900, Labeler: 7200 }
+const MACHINE_PRODUCTS = {
+  Filler: ['SKU-Alpha', 'SKU-Beta'],
+  Packer: ['SKU-Alpha', 'SKU-Gamma'],
+  Palletizer: ['SKU-Alpha', 'SKU-Beta', 'SKU-Gamma'],
+  Labeler: ['SKU-Gamma'],
+}
+
+export const ALL_MACHINES = [...new Set(LINE_TOPOLOGY.flatMap((t) => t.machines))]
+export const ALL_PRODUCTS = [...new Set(Object.values(MACHINE_PRODUCTS).flat())]
+
+export function machinesForLines(lineNames) {
+  if (!lineNames?.length) return ALL_MACHINES
+  const set = new Set()
+  for (const t of LINE_TOPOLOGY) if (lineNames.includes(t.line)) t.machines.forEach((m) => set.add(m))
+  return [...set]
+}
+
+export function productsForMachines(machineNames) {
+  if (!machineNames?.length) return ALL_PRODUCTS
+  const set = new Set()
+  for (const m of machineNames) (MACHINE_PRODUCTS[m] || []).forEach((p) => set.add(p))
+  return [...set]
+}
+
+// makeRow ile aynı KPI matematiği — sabit DESIGN_SPEED yerine makineye özel hız.
+function makeCascadeRow(line, machine, product, date) {
+  const speed = MACHINE_SPEED[machine]
+  const scheduled = 1440
+  const calendar = 1440
+  const theoVolume = Math.round(speed * scheduled * rand(0.98, 1.05))
+
+  const uptimeFrac = rand(0.2, 0.75)
+  const rejectFrac = rand(0.03, 0.06)
+  const plannedFrac = rng() < 0.6 ? 0 : rand(0.0, 0.03)
+  const unplannedFrac = rand(0.08, 0.18)
+  const rateFrac = Math.max(0, 1 - uptimeFrac - rejectFrac - plannedFrac - unplannedFrac)
+
+  const volume = Math.round(uptimeFrac * theoVolume)
+  const reject = Math.round(rejectFrac * theoVolume)
+  const targetVolume = Math.round(theoVolume * 0.955)
+
+  const plannedStopDur = +((plannedFrac * theoVolume) / speed).toFixed(2)
+  const unplannedStopDur = +((unplannedFrac * theoVolume) / speed).toFixed(2)
+
+  const runningDuration = +(volume / speed).toFixed(2)
+  const lowSpeedDuration = +(rateFrac * scheduled).toFixed(2)
+  const totalRuntime = +(runningDuration + lowSpeedDuration).toFixed(2)
+
+  const numberOfStops = randInt(12, 45)
+  const numberOfShortStops = randInt(4, numberOfStops - 2)
+  const breakdown = randInt(0, 3)
+  const processStops = randInt(0, 6)
+  const noDefCode = randInt(0, 10)
+  const plannedStops = plannedFrac > 0 ? randInt(1, 4) : 0
+
+  const mtbf = +(totalRuntime / numberOfStops).toFixed(2)
+
+  return {
+    line,
+    machine,
+    product,
+    date: fmtDate(date),
+    calendarTime: calendar,
+    scheduledTime: scheduled,
+    volume,
+    reject,
+    theoVolume,
+    targetVolume,
+    upTime: +(uptimeFrac * 100).toFixed(2),
+    rateLoss: +(rateFrac * 100).toFixed(2),
+    rejectLoss: +(rejectFrac * 100).toFixed(2),
+    plannedDowntimeLoss: +(plannedFrac * 100).toFixed(2),
+    unplannedDowntimeLoss: +(unplannedFrac * 100).toFixed(2),
+    numberOfStops,
+    numberOfShortStops,
+    breakdown,
+    processStops,
+    noDefCode,
+    plannedStops,
+    mtbf,
+    designTargetSpeed: speed,
+    plannedStopDuration: plannedStopDur,
+    unplannedStopDuration: unplannedStopDur,
+    noDataFlowDuration: +rand(0, 30).toFixed(2),
+    noDemandDuration: +rand(0, 40).toFixed(2),
+    runningDuration,
+    lowSpeedDuration,
+    totalRuntime,
+  }
+}
+
+function pickCascadeProduct(machine) {
+  const opts = MACHINE_PRODUCTS[machine]
+  return opts[randInt(0, opts.length - 1)]
+}
+
+export function generateCascadeRows(days = 30) {
+  rng = mulberry32(20260812) // ayrı seed: generateRows'un dizisiyle karışmaz (bkz. yukarıdaki not)
+  const dates = buildDates(days)
+  const rows = []
+  for (const date of dates) {
+    for (const { line, machines } of LINE_TOPOLOGY) {
+      for (const machine of machines) {
+        rows.push(makeCascadeRow(line, machine, pickCascadeProduct(machine), date))
+      }
+    }
+  }
+  return rows
+}
