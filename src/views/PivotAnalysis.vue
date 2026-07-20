@@ -23,8 +23,8 @@ import { loadRealKpiRows } from '../data/realKpiData.js'
 // İki veri kaynağı: demo (vardiya×makine×ürün granülü, üretilmiş) ve gerçek
 // sistem export'u (line×gün granülü, gitignore'lu dosyadan; yoksa boş).
 // 730 gün = 2 tam yıl: Year/Quarter/Month hiyerarşisi gerçekten dallansın
-// (30 günde sadece 2 ay görünüyordu). 2 hat × 730 gün × 3 vardiya × 3 makine
-// = 13.140 satır — virtual scrolling ile sorunsuz.
+// (30 günde sadece 2 ay görünüyordu). 730 gün × 3 vardiya × (hat başına makine
+// sayısı, lineTopology'den: 3+2=5) = 10.950 satır — virtual scrolling ile sorunsuz.
 const demoRows = generateDetailedRows(730)
 const realRows = loadRealKpiRows()
 
@@ -565,6 +565,9 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
           <DxButton icon="exportpdf" type="danger" styling-mode="outlined" hint="PDF'e aktar (grafik + görünür tablo)" @click="exportPdf" />
         </div>
       </div>
+      <small class="pv-hint">
+        İpucu: alan başlığındaki huni simgesine tıkla — Machine/Product/Line filtreleri birbirine göre daralır.
+      </small>
       <DxChart ref="chartRef">
         <DxSize :height="320" />
         <DxCommonSeriesSettings :type="chartType" :point="pointSettings" />
@@ -572,7 +575,16 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
         <DxLegend vertical-alignment="top" horizontal-alignment="right" />
       </DxChart>
 
-      <!-- fieldPanel: grid üstünde sürükle-bırak bölgeleri (satır/sütun/veri/filtre)
+      <!-- Bağlı (cascading) filtreler: özel bir DxTagBox kurmadık — DevExtreme'in
+           kendi mekanizması var. headerFilter.showRelevantValues:true, bir alanın
+           huni popup'ı açıldığında seçenekleri DİĞER alanların o an aktif
+           filterValues'una göre gerçek satır verisinden daraltır (Machine=Filler
+           seçiliyken Product huni'si sadece Filler'ın ürettiği SKU'ları listeler).
+           Line->Machine->Product ilişkisi lineTopology.js'ten geliyor, Custom
+           Report'taki cascade ile aynı gerçek kaynak. Filtre seçimleri zaten
+           saveLayout/loadLayout'un kullandığı state()'e dahil (filterValues
+           STATE_PROPERTIES'te) — ek kod gerekmedi.
+           fieldPanel: grid üstünde sürükle-bırak bölgeleri (satır/sütun/veri/filtre)
            fieldChooser: sağ tık / ikon ile açılan popup alan seçici -->
       <DxPivotGrid
         ref="pivotRef"
@@ -586,6 +598,7 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
         :allow-filtering="true"
         :allow-expand-all="true"
         :show-borders="true"
+        :header-filter="{ showRelevantValues: true }"
         :field-panel="{
           visible: true,
           allowFieldDragging: true,
@@ -639,6 +652,12 @@ const customizeChartTooltip = ({ seriesName, value }) => ({
 .pv-actions {
   display: flex;
   gap: 0.4rem;
+}
+.pv-hint {
+  display: block;
+  color: var(--lp-text-muted);
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 .pv-card :deep(.dx-pivotgrid) {
   font-size: 0.82rem;
