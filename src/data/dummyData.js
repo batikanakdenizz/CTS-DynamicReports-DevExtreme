@@ -2,6 +2,17 @@
 // Formüller HowWorksReports.md (E2) bölümünden, gerçek verilerle doğrulanmış hâlleriyle
 // uygulanmıştır; böylece UpTime% + RateLoss% + RejectLoss% + PlannedDT% + UnplannedDT% = %100.
 // (PrimeVue projesinden birebir taşındı — framework'ten bağımsız katman.)
+import {
+  LINE_TOPOLOGY,
+  MACHINE_SPEED,
+  MACHINE_PRODUCTS,
+  ALL_MACHINES,
+  ALL_PRODUCTS,
+  machinesForLines,
+  productsForMachines,
+} from './lineTopology.js'
+
+export { ALL_MACHINES, ALL_PRODUCTS, machinesForLines, productsForMachines }
 
 const LINES = ['Link-up 38', 'Link-Up-37']
 const DESIGN_SPEED = 8400 // adet/dk
@@ -162,37 +173,9 @@ export const LINE_OPTIONS = LINES.map((l) => ({ label: l, value: l }))
 // dokunmuyoruz — satır granülerliği hat×gün×makineye çıkınca o ekranın satır/
 // kolon sayısı sessizce değişmesin diye.
 //
-// Gerçek ilişki: her Hat sabit bir Makine setine sahiptir; her Makine sadece
-// belirli Ürünleri (SKU) üretebilir. Bu yüzden Line -> Machine -> Product
-// filtreleri gerçekten birbirine bağlıdır (uydurma bir hiyerarşi değil).
-const LINE_TOPOLOGY = [
-  { line: 'Link-up 38', machines: ['Filler', 'Packer', 'Palletizer'] },
-  { line: 'Link-Up-37', machines: ['Filler', 'Labeler'] },
-]
-const MACHINE_SPEED = { Filler: 8400, Packer: 7800, Palletizer: 6900, Labeler: 7200 }
-const MACHINE_PRODUCTS = {
-  Filler: ['SKU-Alpha', 'SKU-Beta'],
-  Packer: ['SKU-Alpha', 'SKU-Gamma'],
-  Palletizer: ['SKU-Alpha', 'SKU-Beta', 'SKU-Gamma'],
-  Labeler: ['SKU-Gamma'],
-}
-
-export const ALL_MACHINES = [...new Set(LINE_TOPOLOGY.flatMap((t) => t.machines))]
-export const ALL_PRODUCTS = [...new Set(Object.values(MACHINE_PRODUCTS).flat())]
-
-export function machinesForLines(lineNames) {
-  if (!lineNames?.length) return ALL_MACHINES
-  const set = new Set()
-  for (const t of LINE_TOPOLOGY) if (lineNames.includes(t.line)) t.machines.forEach((m) => set.add(m))
-  return [...set]
-}
-
-export function productsForMachines(machineNames) {
-  if (!machineNames?.length) return ALL_PRODUCTS
-  const set = new Set()
-  for (const m of machineNames) (MACHINE_PRODUCTS[m] || []).forEach((p) => set.add(p))
-  return [...set]
-}
+// Topoloji (Line->Machine->Product ilişkisi) artık lineTopology.js'te — Pivot
+// Analysis'in detailedData.js'i de AYNI kaynağı kullanıyor, iki ekran arasında
+// tutarsız hat/makine/ürün tanımı olmasın diye.
 
 // makeRow ile aynı KPI matematiği — sabit DESIGN_SPEED yerine makineye özel hız.
 function makeCascadeRow(line, machine, product, date) {
