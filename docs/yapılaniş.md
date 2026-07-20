@@ -46,3 +46,43 @@ Dimension sayısı değişince (Machine/Product eklenince) DevExtreme'in `DxData
 5-7. Kod tekrarı/refactor fırsatları (`makeCascadeRow` ~ `makeRow`, ayrı SKU kataloğu, iki benzer `watch` bloğu) — kozmetik, davranışı etkilemiyor.
 
 Hiçbiri acil müdahale gerektirmiyor; kullanıcı isterse ayrı bir iterasyonda ele alınabilir.
+
+---
+
+# Bağlı Filtreler — Pivot Analysis'e Genişletme
+
+## İstek
+
+Kullanıcı Custom Report'taki cascade filtre işini onayladıktan sonra: "bunu pivot için de yapalım" — aynı yetenek Pivot Analysis ekranına da istendi. Kapsam netleştirildi: sadece DevExtreme + Pivot Analysis (PrimeVue hâlâ kapsam dışı, sonraki bir adım).
+
+## Yaklaşım: custom UI değil, DevExtreme'in native mekanizması
+
+Pivot Analysis, Custom Report'tan mimari olarak farklı: filtreler kendi `DxTagBox`'larımız değil, `DxPivotGrid` alan başlıklarındaki huni (header filter) simgesiyle çalışıyor. Araştırma DevExtreme'in **hazır bir cascading mekanizması** olduğunu ortaya çıkardı: `headerFilter.showRelevantValues: true` ayarlanınca, bir alanın huni popup'ı açıldığında seçenekler diğer alanların o an aktif `filterValues`'una göre **gerçek satır verisinden** otomatik daralıyor. Custom Report'taki gibi elle `DxTagBox`+`watch`+pruning kurmaya gerek kalmadı — tek satır config.
+
+Bu native mekanizma gerçek veri korelasyonuna dayandığı için önce veri düzeltildi:
+- `detailedData.js`'te iki hat da aynı 3 makineye sahipti (Line→Machine ayrımı yoktu) ve bu, Custom Report'un topolojisinden (Link-Up-37: Filler+Labeler) FARKLIYDI — önceki review'un flag'lediği tutarsızlık.
+- `pickProduct()` makineden tamamen bağımsız, düz ağırlıklı rastgele seçimdi — Machine→Product korelasyonu hiç yoktu.
+
+## Değişen dosyalar
+
+- **`src/data/lineTopology.js`** (yeni) — `LINE_TOPOLOGY`/`MACHINE_SPEED`/`MACHINE_PRODUCTS`/yardımcı fonksiyonlar `dummyData.js`'ten buraya taşındı (değerler birebir aynı — Custom Report'un seed'li PRNG çıktısı bozulmasın diye). Artık tek kaynak, iki tüketici.
+- **`src/data/dummyData.js`** — yerel topoloji tanımları silindi, `lineTopology.js`'den import ediliyor. Davranış değişmedi (regresyon testiyle doğrulandı: Custom Report'ta aynı sayılar).
+- **`src/data/detailedData.js`** — `LINES` artık `lineTopology.js`'den türetiliyor (Link-Up-37 iki ekranda da tutarlı: Filler+Labeler — önceki review'daki tutarsızlık kapandı). `pickProduct()` artık makineye bağlı (`MACHINE_PRODUCTS`'a göre) — eskiden bağımsız ağırlıklı rastgele seçimdi.
+- **`src/views/PivotAnalysis.vue`** — `<DxPivotGrid>`'e `:header-filter="{ showRelevantValues: true }"` eklendi (tek satır, tüm cascading mantığını açıyor). Kullanıcıya kısa bir ipucu metni eklendi ("alan başlığındaki huni simgesine tıkla...").
+
+## Kaydet/yükle — ek kod gerekmedi
+
+`PivotGridDataSource.state()` zaten `filterValues`'u her alan için serialize ediyor (DevExtreme'in `STATE_PROPERTIES` listesinde). Mevcut `saveLayout`/`loadLayout` bu yeni cascading filtre seçimlerini otomatik kapsıyor.
+
+## Test edilenler (DOM seviyesinde doğrulandı)
+
+- Line=Link-Up-37 seçilince Machine huni popup'ı sadece `Filler`+`Labeler` gösteriyor (Packer/Palletizer düşüyor).
+- Machine=Filler seçilince Product huni popup'ı sadece `SKU-Alpha`+`SKU-Beta` gösteriyor (SKU-Gamma düşüyor) — 3 seviyeli cascade (Line→Machine→Product) uçtan uca çalışıyor.
+- Kaydet/yükle: `pv-pivot-state-demo` localStorage'da `filterValues` doğru kaydediliyor, sayfa yenilenip yüklenince filtreler geri geliyor.
+- Custom Report'ta regresyon yok: varsayılan durumda Up Time % hâlâ birebir aynı (45.02%) — `lineTopology.js`'ye taşıma PRNG çıktısını bozmadı.
+- Line Daily KPI etkilenmedi (60 kayıt, ayrı `generateRows` kaynağı).
+- Konsol boyunca hatasız, `npm run build` — 0 hata.
+
+## Bilinen not
+
+`detailedData.js`'teki satır sayısı, Link-Up-37'nin makine sayısı 3'ten 2'ye düşmesiyle küçüldü (730 gün × 3 vardiya × 5 makine = 10.950, eskiden 13.140). KPI matematiğini etkilemiyor, sadece toplam satır sayısı — Grand Total %100 invariant'ı hâlâ korunuyor (canlı doğrulandı).
